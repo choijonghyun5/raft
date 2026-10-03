@@ -2,8 +2,8 @@
 document.addEventListener('touchmove',e=>{if(e.touches.length>1||!e.target.closest('#box,#pk,#fm'))e.preventDefault()},{passive:false});
 document.addEventListener('dblclick',e=>e.preventDefault());
 const $=id=>document.getElementById(id),cv=$('c'),g=cv.getContext('2d'),W=$('wrap');
-cv.width=320;cv.height=180;
-function fit(){const s=Math.max(1,Math.floor(Math.min(innerWidth/320,innerHeight/180)));W.style.width=320*s+'px';W.style.height=180*s+'px';W.style.setProperty('--u',Math.min(s,3)+'px');$('rot').style.display=innerHeight>innerWidth&&innerWidth<800?'grid':'none'}
+let VW=320,VH=180;cv.width=VW;cv.height=VH;
+function fit(){const w=innerWidth,h=innerHeight,s=Math.max(1,Math.floor(Math.min(w/300,h/160))),nw=Math.max(240,Math.round(w/s)),nh=Math.max(135,Math.round(h/s));if(nw!==VW||nh!==VH){VW=nw;VH=nh;cv.width=VW;cv.height=VH}W.style.width=w+'px';W.style.height=h+'px';W.style.setProperty('--u',Math.min(s,3)+'px');$('rot').style.display=h>w&&w<800?'grid':'none'}
 addEventListener('resize',fit);fit();
 
 const T={wood:{n:'나무'},plastic:{n:'플라스틱'},rope:{n:'밧줄'},scrap:{n:'고철'},cloth:{n:'천'},fish:{n:'생선'},cooked:{n:'구운 생선'},seed:{n:'씨앗'},potato:{n:'감자'},mack:{n:'고등어'},tuna:{n:'참치'},squid:{n:'오징어'},carrot:{n:'당근'},tomato:{n:'토마토'},corn:{n:'옥수수'},berry:{n:'딸기'},metal:{n:'금속괴'},deep:{n:'심해어'},branch:{n:'나뭇가지'},glass:{n:'유리'},junk:{n:'부유물'},herb:{n:'허브'},bpotato:{n:'구운 감자'},bcorn:{n:'구운 옥수수'},stew:{n:'생선 스튜'},hfish:{n:'허브 생선구이'},stone:{n:'돌'},plank:{n:'판자'},clay:{n:'점토'},shard:{n:'금속 조각'},ore:{n:'철광석'},cuore:{n:'구리광석'},copper:{n:'구리'},elec:{n:'전자 부품'},battery:{n:'배터리'},part:{n:'기계 부품'},fuel:{n:'연료'},paper:{n:'종이'},ink:{n:'잉크'}};
@@ -89,12 +89,13 @@ idbDel=()=>idb().then(d=>{d.transaction('kv','readwrite').objectStore('kv').dele
 const save=()=>{const j=JSON.stringify(S);try{localStorage.setItem('raft1',j)}catch(e){}idbPut(j)};
 try{if(!localStorage.getItem('raft1'))idb().then(d=>{const r=d.transaction('kv').objectStore('kv').get('raft1');r.onsuccess=()=>{if(r.result&&!localStorage.getItem('raft1')){localStorage.setItem('raft1',r.result);location.reload()}}}).catch(()=>{})}catch(e){}
 let items=[],t=0,dead=false,spawnT=0,purCd=0,face={x:0,y:1},hookFx=null,fs={on:false,t:0},saveT=0,moving=false,panelOn=false;
-const cam={x:S.x-160,y:S.y-90};
+const cam={x:S.x-VW/2,y:S.y-VH/2};
 const has=(a,b)=>S.tiles.includes(a+','+b);
 const ok=(x,y)=>has(Math.floor((x-3)/16),Math.floor((y-2)/16))&&has(Math.floor((x+3)/16),Math.floor((y-2)/16))&&has(Math.floor((x-3)/16),Math.floor(y/16))&&has(Math.floor((x+3)/16),Math.floor(y/16));
 const center=()=>{let a=0,b=0;S.tiles.forEach(k=>{const[p,q]=k.split(',').map(Number);a+=p*16+8;b+=q*16+8});return[a/S.tiles.length,b/S.tiles.length]};
 
-function spawn(near){const[cx,cy]=center(),a=Math.random()*6.283,r=near?40+Math.random()*60:170,sx=cx+Math.cos(a)*r,sy=cy+Math.sin(a)*r,tx=cx+(Math.random()-.5)*90,ty=cy+(Math.random()-.5)*90,d=Math.hypot(tx-sx,ty-sy)||1,sp=8+Math.random()*14;
+function spawnR(){return Math.max(170,Math.hypot(VW,VH)/2+14)}
+function spawn(near){const[cx,cy]=center(),a=Math.random()*6.283,r=near?40+Math.random()*60:spawnR(),sx=cx+Math.cos(a)*r,sy=cy+Math.sin(a)*r,tx=cx+(Math.random()-.5)*90,ty=cy+(Math.random()-.5)*90,d=Math.hypot(tx-sx,ty-sy)||1,sp=8+Math.random()*14;
  items.push({k:WEIGHT[Math.random()*WEIGHT.length|0],x:sx,y:sy,vx:(tx-sx)/d*sp,vy:(ty-sy)/d*sp,ph:Math.random()*6})}
 for(let i=0;i<7;i++)spawn(true);
 
@@ -175,7 +176,7 @@ const techOn=id=>{S.tn=S.tn||{};return!!S.tn[id]};
 function gate(id){const nid=GT[id];if(nid&&!techOn(nid)){const n=TN.find(x=>x.id===nid);return{ok:false,msg:'🔒 '+n.n}}const f=EXC[id],m=f?f():'';return m?{ok:false,msg:m}:{ok:true}}
 let techT=0;
 function techTick(){S.tn=S.tn||{};const G=GOT(),M=S.made||(S.made={});for(const k in T)if(S.inv[k]>0)G[k]=1;for(const k in S.tool)if(S.tool[k])M[k]=1;for(const f in FAC)if(S[FAC[f]])M[f]=1;
- TN.forEach(n=>{if(!S.tn[n.id]&&n.p.every(p=>S.tn[p])&&n.ok()){S.tn[n.id]=1;if(n.id!=='prim')setTimeout(()=>{toast('🔓 기술 해금: '+n.n);sfx('craft')},600)}})}
+ TN.forEach(n=>{if(!S.tn[n.id]&&n.p.every(p=>S.tn[p])&&n.ok()){S.tn[n.id]=1;if(n.id!=='prim')setTimeout(()=>{toast('🔓 기술 해금: '+n.n);},600)}})}
 const hookId=()=>S.tool.hook4&&(S.pw|0)>=3?'hook4':S.tool.hook3?'hook3':S.tool.hook2?'hook2':'hook',reachOf=()=>S.tool.hook4&&(S.pw|0)>=3?140:S.tool.hook3?100:S.tool.hook2?72:S.tool.hook?46:18,PWM=()=>S.tool.bigpow?300:100,nf=o=>o&&Math.hypot(o[0]-S.x,o[1]-S.y)<22;
 Object.assign(ICON,{stone:P=>{P(2,3,8,7,O);P(3,4,6,5,'#8c949c');P(3,4,4,1,'#c7ced4');P(3,8,6,1,'#5d656d');P(7,5,2,2,'#6d7780')},
  plank:P=>{P(1,2,10,8,O);P(2,3,8,6,'#c9955a');P(2,3,8,2,'#e0b078');P(2,8,8,1,'#8a5a33');P(3,5,1,1,'#8a5a33')},
@@ -211,7 +212,7 @@ const RF=[{wood:3,rope:2},{scrap:3,wood:2,rope:2},{metal:2,scrap:2,rope:2}],CK=[
 const BU=[{metal:4,plank:4},{metal:6,copper:2,part:2}];
 const chips=c=>Object.entries(c).map(([m,v])=>`<i class="${(S.inv[m]|0)>=v?'':'no'}">${ico(m)}${T[m].n} ${S.inv[m]|0}/${v}</i>`).join('');
 function buRow(){if(!S.bn)return'';const lv=S.bl||1,c=BU[lv-1];let msg='';if(lv===1&&!techOn('forge'))msg='제련 기술 필요';else if(lv===2&&!made('toolset'))msg='공구 세트 필요';const can=lv<3&&!msg&&c&&Object.entries(c).every(([m,v])=>(S.inv[m]|0)>=v);return `<div class="row"><div><b>작업대 업그레이드 (현재 Lv.${lv})</b><small>Lv.2: 금속 도구 제작 · Lv.3 고급 작업대: 무전기 제작</small>${c?chips(c):''}</div><button data-bu="1" ${can?'':'disabled'}>${lv>=3?'최대':msg||'Lv.'+(lv+1)}</button></div>`}
-function benchUp(){const lv=S.bl||1,c=BU[lv-1];if(!S.bn||!c||lv>=3)return;if(lv===1&&!techOn('forge'))return;if(lv===2&&!made('toolset'))return;for(const m in c)if((S.inv[m]|0)<c[m])return;for(const m in c)S.inv[m]-=c[m];S.bl=lv+1;sfx('craft');toast('작업대 Lv.'+S.bl+'로 업그레이드!');renderInv();renderPanel();save()}
+function benchUp(){const lv=S.bl||1,c=BU[lv-1];if(!S.bn||!c||lv>=3)return;if(lv===1&&!techOn('forge'))return;if(lv===2&&!made('toolset'))return;for(const m in c)if((S.inv[m]|0)<c[m])return;for(const m in c)S.inv[m]-=c[m];S.bl=lv+1;toast('작업대 Lv.'+S.bl+'로 업그레이드!');renderInv();renderPanel();save()}
 const nearO=(o,d=70)=>o&&Math.hypot(o[0]-S.x,o[1]-S.y)<d,nearSm=()=>!S.sm?'제련로 필요':nearO(S.sm)?'':'제련로 가까이',nearBn=()=>!S.bn?'작업대 필요':nearO(S.bn)?'':'작업대 가까이';
 const PR=[{id:'plank',n:'판자',d:'통나무 2개를 톱으로 가공',c:{wood:2},o:{plank:1},need:()=>S.tool.saw?'':'목재 톱 필요'},
  {id:'ingot',n:'금속괴 (고철 제련)',d:'고철 3개를 녹여 금속괴 1개',c:{scrap:3},o:{metal:1},need:nearSm},
@@ -223,7 +224,7 @@ const PR=[{id:'plank',n:'판자',d:'통나무 2개를 톱으로 가공',c:{wood:
  {id:'part',n:'기계 부품',d:'금속괴와 고철을 공구 세트로 가공',c:{metal:2,scrap:2},o:{part:1},need:()=>!S.tool.toolset?'공구 세트 필요':nearBn()},
  {id:'battery',n:'배터리',d:'금속·구리·전자 부품을 조립',c:{metal:1,copper:1,elec:1},o:{battery:1},need:()=>!techOn('electric')?'전기 기술 필요':nearBn()}];
 function prRows(m){return '<div class="row"><div><b>가공</b><small>도구·시설 가까이에서 재료를 가공한다</small></div></div>'+PR.filter(p=>!FPR.includes(p.id)&&BPR.includes(p.id)===(m==='bench')).map(p=>{const msg=p.need(),out=Object.keys(p.o)[0],can=!msg&&Object.entries(p.c).every(([k,v])=>(S.inv[k]|0)>=v)&&(S.inv[out]|0)<20;return `<div class="row"><div><b>${ico(out)}${p.n}</b><small>${p.d}</small>${chips(p.c)}</div><button data-pr="${p.id}" ${can?'':'disabled'}>${msg||'가공'}</button></div>`}).join('')}
-function proc(id){const p=PR.find(x=>x.id===id);if(!p||p.need())return;for(const k in p.c)if((S.inv[k]|0)<p.c[k])return;const out=Object.keys(p.o)[0];if((S.inv[out]|0)>=20){toast('가방이 가득 찼다');return}for(const k in p.c)S.inv[k]-=p.c[k];for(const k in p.o)S.inv[k]=(S.inv[k]|0)+p.o[k];sfx(out==='fuel'||out==='metal'||out==='copper'?'fire':'craft');toast(p.n+' 완성! '+T[out].n+' +'+p.o[out]);renderInv();renderPanel();save()}
+function proc(id){const p=PR.find(x=>x.id===id);if(!p||p.need())return;for(const k in p.c)if((S.inv[k]|0)<p.c[k])return;const out=Object.keys(p.o)[0];if((S.inv[out]|0)>=20){toast('가방이 가득 찼다');return}for(const k in p.c)S.inv[k]-=p.c[k];for(const k in p.o)S.inv[k]=(S.inv[k]|0)+p.o[k];toast(p.n+' 완성! '+T[out].n+' +'+p.o[out]);renderInv();renderPanel();save()}
 let tnSel=null;
 const hv=id=>!!(S.tool[id]||(FAC[id]&&S[FAC[id]])),PATHS=[['생존',[['낚시','rod'],['요리','furnace'],['농업','planter'],['자동 재배','afarm']]],['탐험',[['갈고리','hook'],['망원경','telescope'],['나침반','compass'],['엔진','engine'],['항해 장비','nav']]],['기술',[['금속 제련','smelter'],['전기','solar'],['발전','gen'],['무전기','radio'],['장거리 무전기','lradio']]]];
 function tnNode(id,top){const n=TN.find(x=>x.id===id),on=techOn(id),kids=TN.filter(x=>x.p[0]===id),ic=on?ico(n.i):`<span style="filter:brightness(0);opacity:.55">${ico(n.i)}</span>`;
@@ -235,17 +236,17 @@ function rsRows(){const path=PATHS.map(([nm,a])=>`<small><b>${nm}</b> ${a.map(([
  return tnDetail()+'<div style="padding:calc(var(--u)*2) 0">'+tnNode('prim',true)+'</div><div class="row"><div><b>발전 경로</b>'+path+'<small>세 경로는 후반부에 다시 만난다 — 엔진·발전·자동 재배를 갖추면 고급 생존 기술이 열린다.</small></div></div>'}
 function rfTile(){let b=null,bd=1e9;S.tiles.forEach(k=>{const[p,q]=k.split(',').map(Number),d=Math.hypot(p*16+8-S.x,q*16+8-S.y);if(d<bd){bd=d;b=k}});return b}
 function rfRow(){const k=rfTile();if(!k)return'';const lv=(S.rf&&S.rf[k])|0,c=RF[lv],can=lv<3&&!(lv===2&&!tierOk(3))&&!(lv>=1&&!S.tool.mhammer)&&Object.entries(c||{}).every(([m,v])=>(S.inv[m]|0)>=v);return `<div class="row"><div><b>뗏목 강화 (서 있는 타일)</b><small>타일을 보강해 상어·폭풍 피해를 줄인다 · 현재 Lv${lv}/3 (피해 -${lv*25}%) · 내구도 +20</small>${c?Object.entries(c).map(([m,v])=>`<i class="${(S.inv[m]|0)>=v?'':'no'}">${ico(m)}${T[m].n} ${S.inv[m]|0}/${v}</i>`).join(''):''}</div><button data-rf="1" ${can?'':'disabled'}>${lv>=3?'최대':lv>=1&&!S.tool.mhammer?'금속 망치 필요':lv===2&&!tierOk(3)?LOCK[3]:'강화 Lv'+(lv+1)}</button></div>`}
-function reinforce(){const k=rfTile();if(!k)return;S.rf=S.rf||{};const lv=S.rf[k]|0;if(lv>=3){toast('이미 최대 강화다');return}if(lv>=1&&!S.tool.mhammer){toast('Lv.2 이상은 금속 망치가 필요하다');return}if(lv===2&&!tierOk(3)){toast(LOCK[3]);return}const c=RF[lv];for(const m in c)if((S.inv[m]|0)<c[m]){toast('재료가 부족하다');return}for(const m in c)S.inv[m]-=c[m];S.rf[k]=lv+1;S.dur[k]=Math.min(100,(S.dur[k]??100)+20);sfx('craft');toast('타일 강화 Lv'+(lv+1)+'! 상어·파도 피해 -'+25*(lv+1)+'%');renderInv();renderPanel();save()}
+function reinforce(){const k=rfTile();if(!k)return;S.rf=S.rf||{};const lv=S.rf[k]|0;if(lv>=3){toast('이미 최대 강화다');return}if(lv>=1&&!S.tool.mhammer){toast('Lv.2 이상은 금속 망치가 필요하다');return}if(lv===2&&!tierOk(3)){toast(LOCK[3]);return}const c=RF[lv];for(const m in c)if((S.inv[m]|0)<c[m]){toast('재료가 부족하다');return}for(const m in c)S.inv[m]-=c[m];S.rf[k]=lv+1;S.dur[k]=Math.min(100,(S.dur[k]??100)+20);toast('타일 강화 Lv'+(lv+1)+'! 상어·파도 피해 -'+25*(lv+1)+'%');renderInv();renderPanel();save()}
 function ckRows(){const near=S.fur&&Math.hypot(S.fur[0]-S.x,S.fur[1]-S.y)<60;return '<div class="row"><div><b>요리</b><small>화로 가까이에서 재료를 조합한다</small></div></div>'+CK.map(r=>{const can=near&&Object.entries(r.c).every(([k,v])=>(S.inv[k]|0)>=v)&&(S.inv[r.id]|0)<20;return `<div class="row"><div><b>${ico(r.id)}${r.n}</b><small>${r.d}</small>${Object.entries(r.c).map(([k,v])=>`<i class="${(S.inv[k]|0)>=v?'':'no'}">${ico(k)}${T[k].n} ${S.inv[k]|0}/${v}</i>`).join('')}</div><button data-ck="${r.id}" ${can?'':'disabled'}>${!S.fur?'화로 필요':near?'요리':'화로 가까이'}</button></div>`}).join('')}
-function cook(id){const r=CK.find(x=>x.id===id);if(!r||!S.fur||Math.hypot(S.fur[0]-S.x,S.fur[1]-S.y)>=60)return;for(const k in r.c)if((S.inv[k]|0)<r.c[k])return;for(const k in r.c)S.inv[k]-=r.c[k];S.inv[id]=(S.inv[id]|0)+1;sfx('fire');toast(r.n+' 완성!');renderInv();renderPanel();save()}
-function mv(m){sfx('chest');const[d,k]=m.split(':');if(d==='put'){const n=Math.min(5,S.inv[k]|0);S.inv[k]-=n;S.ch[k]=(S.ch[k]|0)+n}else{const n=Math.min(5,S.ch[k]|0,20-(S.inv[k]|0));S.ch[k]-=n;S.inv[k]=(S.inv[k]|0)+n}renderInv();renderPanel();save()}
+function cook(id){const r=CK.find(x=>x.id===id);if(!r||!S.fur||Math.hypot(S.fur[0]-S.x,S.fur[1]-S.y)>=60)return;for(const k in r.c)if((S.inv[k]|0)<r.c[k])return;for(const k in r.c)S.inv[k]-=r.c[k];S.inv[id]=(S.inv[id]|0)+1;toast(r.n+' 완성!');renderInv();renderPanel();save()}
+function mv(m){const[d,k]=m.split(':');if(d==='put'){const n=Math.min(5,S.inv[k]|0);S.inv[k]-=n;S.ch[k]=(S.ch[k]|0)+n}else{const n=Math.min(5,S.ch[k]|0,20-(S.inv[k]|0));S.ch[k]-=n;S.inv[k]=(S.inv[k]|0)+n}renderInv();renderPanel();save()}
 function setPanel(v,m){panelOn=v;if(v){pmode=m||'hand';build=false;dm=null;if(mvd){S[FAC[mvd.id]]=mvd.d;mvd=null}}$('panel').classList.toggle('on',v);if(v)renderPanel()}
 
 function craft(id){if(id.startsWith('fix:')){fix(id.slice(4));return}
 const r=R.find(x=>x.id===id);if(!r)return;for(const k in r.c)if(S.inv[k]<r.c[k])return;
  if(FAC[id]||id==='tile'){startBuild(id);return}
  else{S.tool[id]=1;(S.made=S.made||{})[id]=1}
- for(const k in r.c)S.inv[k]-=r.c[k];const q0=(S.qs||[]).indexOf(id),ai=autoEq(id);sfx('craft');toast(r.n+' 완성!'+(ai>=0&&q0<0?' → 슬롯 '+(ai+1):''));renderInv();renderPanel();save()}
+ for(const k in r.c)S.inv[k]-=r.c[k];const q0=(S.qs||[]).indexOf(id),ai=autoEq(id);toast(r.n+' 완성!'+(ai>=0&&q0<0?' → 슬롯 '+(ai+1):''));renderInv();renderPanel();save()}
 $('list').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;if(b.dataset.tn){tnSel=tnSel===b.dataset.tn?null:b.dataset.tn;renderPanel()}else if(b.dataset.tab){tab=b.dataset.tab;renderPanel()}else if(b.dataset.dm){setPanel(false);dm=b.dataset.dm;toast('시설 가까이에서 행동 버튼 ('+(dm==='del'?'철거':'이동')+'). 취소: 제작/C')}else if(b.dataset.m)mv(b.dataset.m);else if(b.dataset.rf)reinforce();else if(b.dataset.ck)cook(b.dataset.ck);else if(b.dataset.pr)proc(b.dataset.pr);else if(b.dataset.bu)benchUp();else craft(b.dataset.id)});
 
 let build=false,bt=null,dm=null,mvd=null,PF=[];
@@ -253,14 +254,14 @@ const FAC={purifier:'pur',furnace:'fur',collector:'col',chest:'chs',planter:'pl'
 function cands(){if(build&&build!=='tile')return S.tiles.filter(k=>{const[p,q]=k.split(',').map(Number);return!occ().some(o=>o[0]===p*16+8&&o[1]===q*16+8)});const c=[];S.tiles.forEach(k=>{const[p,q]=k.split(',').map(Number);[[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const n=(p+a)+','+(q+b);if(!has(p+a,q+b)&&!c.includes(n))c.push(n)})});return c}
 function pickC(){const x=bt?bt.x:S.x+face.x*26,y=bt?bt.y:S.y+face.y*26;let b=null,bd=1e9;cands().forEach(k=>{const[p,q]=k.split(',').map(Number),d=Math.hypot(p*16+8-x,q*16+8-y);if(d<bd){bd=d;b=k}});return b}
 function startBuild(id){if(id==='tile'&&S.tiles.length>=20){toast('뗏목이 최대 크기입니다');return}build=id||'tile';if(!cands().length){build=false;toast('설치할 빈 타일이 없다');return}setPanel(false);rowing=false;fs.on=false;toast('설치할 칸을 터치하거나 방향+행동 (취소: 제작/C)')}
-function place(){const k=pickC();if(!k){build=false;return}const id=build,r=R.find(x=>x.id===id),mv=mvd&&mvd.id===id,c=id==='tile'?{wood:4}:mv?{}:r.c;for(const m in c)if(S.inv[m]<c[m]){build=false;toast('재료가 부족하다');return}for(const m in c)S.inv[m]-=c[m];if(id==='tile')S.tiles.push(k);else{const[p,q]=k.split(',').map(Number),pos=[p*16+8,q*16+8];S[FAC[id]]=id==='planter'?[...pos,...(mv?mvd.d.slice(2):[0,0,0])]:pos;if(id==='collector'&&!mv)S.colW=0}{const[kp,kq]=k.split(',').map(Number);PF.push({x:kp*16+8,y:kq*16+8,t});if(id!=='tile')(S.made=S.made||{})[id]=1}mvd=null;build=false;bt=null;const q0=(S.qs||[]).indexOf(id),ai=autoEq(id);sfx('craft');toast(r.n+(mv?' 이동!':' 설치!')+(ai>=0&&q0<0?' → 슬롯 '+(ai+1):''));renderInv();save()}
+function place(){const k=pickC();if(!k){build=false;return}const id=build,r=R.find(x=>x.id===id),mv=mvd&&mvd.id===id,c=id==='tile'?{wood:4}:mv?{}:r.c;for(const m in c)if(S.inv[m]<c[m]){build=false;toast('재료가 부족하다');return}for(const m in c)S.inv[m]-=c[m];if(id==='tile')S.tiles.push(k);else{const[p,q]=k.split(',').map(Number),pos=[p*16+8,q*16+8];S[FAC[id]]=id==='planter'?[...pos,...(mv?mvd.d.slice(2):[0,0,0])]:pos;if(id==='collector'&&!mv)S.colW=0}{const[kp,kq]=k.split(',').map(Number);PF.push({x:kp*16+8,y:kq*16+8,t});if(id!=='tile')(S.made=S.made||{})[id]=1}mvd=null;build=false;bt=null;const q0=(S.qs||[]).indexOf(id),ai=autoEq(id);toast(r.n+(mv?' 이동!':' 설치!')+(ai>=0&&q0<0?' → 슬롯 '+(ai+1):''));renderInv();save()}
 function doDm(){let bk=null,bd=24;for(const id in FAC){const o=S[FAC[id]];if(!o)continue;const d=Math.hypot(o[0]-S.x,o[1]-S.y);if(d<bd){bd=d;bk=id}}if(!bk){toast('가까이 시설이 없다 (취소: 제작/C)');return}const f=FAC[bk],data=S[f],r=R.find(x=>x.id===bk);
  if(dm==='del'){for(const m in r.c)S.inv[m]=(S.inv[m]|0)+Math.floor(r.c[m]/2);S[f]=null;if(S.brk)delete S.brk[bk];if(bk==='chest'){for(const m in S.ch)S.inv[m]=(S.inv[m]|0)+S.ch[m];S.ch={}}toast(r.n+' 철거 (재료 절반 회수)');renderInv();save()}
  else{S[f]=null;mvd={id:bk,d:data};dm=null;startBuild(bk)}}
-cv.addEventListener('pointerdown',e=>{if(!build)return;const r=cv.getBoundingClientRect();bt={x:(e.clientX-r.left)/r.width*320+ox,y:(e.clientY-r.top)/r.height*180+oy}});
+cv.addEventListener('pointerdown',e=>{if(!build)return;const r=cv.getBoundingClientRect();bt={x:(e.clientX-r.left)/r.width*VW+ox,y:(e.clientY-r.top)/r.height*VH+oy}});
 
 const FTAP=['purifier','purifier2','collector','tank','planter','furnace','radio','bed','fuelt','gen','smelter','elamp'];
-cv.addEventListener('pointerdown',e=>{if(build||dm||panelOn||dead||ex)return;const r=cv.getBoundingClientRect(),wx=(e.clientX-r.left)/r.width*320+ox,wy=(e.clientY-r.top)/r.height*180+oy;
+cv.addEventListener('pointerdown',e=>{if(build||dm||panelOn||dead||ex)return;const r=cv.getBoundingClientRect(),wx=(e.clientX-r.left)/r.width*VW+ox,wy=(e.clientY-r.top)/r.height*VH+oy;
  let hit=null,bd=1e9;
  [...FTAP,'chest','bench'].forEach(id=>{const o=S[FAC[id]];if(!o)return;const dx=wx-o[0],dy=wy-o[1];if(Math.abs(dx)<=9&&dy>=-14&&dy<=9){const d=Math.hypot(dx,dy+3);if(d<bd){bd=d;hit=id}}});
  if(!hit){fmClose();return}if(hit!==fmId)fmClose();if(hit==='chest'){tab='보관';setPanel(true,'chest');return}if(hit==='bench'){if(Math.hypot(S.bn[0]-S.x,S.bn[1]-S.y)<40)setPanel(true,'bench');else toast('작업대 가까이 가서 누르자');return}useFac(hit)});
@@ -270,25 +271,25 @@ const costTxt=c=>Object.entries(c).map(([k,v])=>T[k].n+' '+(S.inv[k]|0)+'/'+v).j
 function prAct(p){const out=Object.keys(p.o)[0],msg=p.need();return{l:p.n,sub:(msg||p.d)+' · '+costTxt(p.c),on:!msg&&Object.entries(p.c).every(([k,v])=>(S.inv[k]|0)>=v)&&(S.inv[out]|0)<20,f:()=>proc(p.id)}}
 const FACMENU={
  purifier:()=>({t:'💧 간이 정수기',st:purCd>0?'정수 중… '+Math.ceil(purCd)+'초':'바닷물을 식수로 바꾼다',a:[
-  {l:'물 마시기',sub:'갈증 +35',on:purCd<=0&&S.th<100,f:()=>{S.th=Math.min(100,S.th+35);purCd=8;sfx('drink');toast('식수를 마셨다 갈증 +35')}},
-  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+40)':'물통이 필요하다',on:purCd<=0&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{S.bw=Math.min(100,(S.bw||0)+40);purCd=8;sfx('drink');toast('물통에 물을 담았다 ('+Math.round(S.bw)+'%)')}}]}),
+  {l:'물 마시기',sub:'갈증 +35',on:purCd<=0&&S.th<100,f:()=>{S.th=Math.min(100,S.th+35);purCd=8;toast('식수를 마셨다 갈증 +35')}},
+  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+40)':'물통이 필요하다',on:purCd<=0&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{S.bw=Math.min(100,(S.bw||0)+40);purCd=8;toast('물통에 물을 담았다 ('+Math.round(S.bw)+'%)')}}]}),
  planter:()=>{const P=S.pl,st=P[2];return{t:'🌱 재배 상자',st:st===0?'비어 있음':st===1?'자라는 중 · 성장 '+Math.round(P[3]||0)+'% · '+(P[4]>0?'촉촉함':'물이 필요하다'):'다 자랐다 ('+T[P[5]||'potato'].n+')',a:[
   {l:'씨앗 심기',sub:st===0?'씨앗 '+(S.inv.seed|0)+'개':'이미 심겨 있다',on:st===0&&S.inv.seed>0,f:plant},
   {l:'물 주기',sub:st!==1?'자라는 중일 때':P[4]>20?'아직 촉촉하다':'수집기 물 15% (현재 '+Math.floor(S.colW||0)+'%)',on:st===1&&P[4]<=20&&(S.colW||0)>=15,f:waterPl},
   {l:'수확하기',sub:st===2?'×3':'아직 다 자라지 않았다',on:st===2,f:harvest}]}},
  furnace:()=>{const rw=['deep','tuna','mack','squid','fish'].find(k=>S.inv[k]>0),n=rw?(rw==='deep'?3:rw==='tuna'?2:1)+(S.tool.knife?1:0):0,
-  a=[{l:'생선 굽기',sub:rw?T[rw].n+' → 구운 생선 ×'+n:'구울 생선이 없다',on:!!rw,f:()=>{const r=['deep','tuna','mack','squid','fish'].find(k=>S.inv[k]>0);if(!r)return;S.inv[r]--;const m=(r==='deep'?3:r==='tuna'?2:1)+(S.tool.knife?1:0);if(S.tool.knife)use('knife');S.inv.cooked=(S.inv.cooked|0)+m;sfx('fire');toast(T[r].n+'을(를) 구웠다 +'+m);renderInv();save()}}];
+  a=[{l:'생선 굽기',sub:rw?T[rw].n+' → 구운 생선 ×'+n:'구울 생선이 없다',on:!!rw,f:()=>{const r=['deep','tuna','mack','squid','fish'].find(k=>S.inv[k]>0);if(!r)return;S.inv[r]--;const m=(r==='deep'?3:r==='tuna'?2:1)+(S.tool.knife?1:0);if(S.tool.knife)use('knife');S.inv.cooked=(S.inv.cooked|0)+m;toast(T[r].n+'을(를) 구웠다 +'+m);renderInv();save()}}];
   CK.forEach(r=>a.push({l:r.n,sub:r.d+' · '+costTxt(r.c),on:Object.entries(r.c).every(([k,v])=>(S.inv[k]|0)>=v)&&(S.inv[r.id]|0)<20,f:()=>cook(r.id)}));
   a.push(prAct(PR.find(p=>p.id==='fuel')));return{t:'🔥 화로',st:'굽기 · 요리 · 연료 만들기',a}},
  collector:()=>{const w=S.colW||0;return{t:'🌧️ 빗물 수집기',st:'모인 물 '+Math.floor(w)+'%'+(S.tnk?' · 넘치면 탱크로':''),a:[
-  {l:'물 마시기',sub:'갈증 +최대 '+Math.round(Math.min(w,100-S.th))+' (10% 이상 필요)',on:w>=10&&S.th<100,f:()=>{const a=Math.min(S.colW,100-S.th);S.th+=a;S.colW-=a;sfx('drink');toast('빗물을 마셨다 갈증 +'+Math.round(a))}},
-  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+최대 40)':'물통이 필요하다',on:w>=5&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{const a=Math.min(S.colW,40,100-(S.bw||0));S.colW-=a;S.bw=(S.bw||0)+a;sfx('drink');toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
+  {l:'물 마시기',sub:'갈증 +최대 '+Math.round(Math.min(w,100-S.th))+' (10% 이상 필요)',on:w>=10&&S.th<100,f:()=>{const a=Math.min(S.colW,100-S.th);S.th+=a;S.colW-=a;toast('빗물을 마셨다 갈증 +'+Math.round(a))}},
+  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+최대 40)':'물통이 필요하다',on:w>=5&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{const a=Math.min(S.colW,40,100-(S.bw||0));S.colW-=a;S.bw=(S.bw||0)+a;toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
  tank:()=>{const w=S.tkW||0;return{t:'🛢️ 물 저장 탱크',st:'저장수 '+Math.round(w)+' / 200',a:[
-  {l:'물 마시기',sub:'갈증 +최대 '+Math.round(Math.min(w,100-S.th)),on:w>=1&&S.th<100,f:()=>{const a=Math.min(S.tkW,100-S.th);S.th+=a;S.tkW-=a;sfx('drink');toast('저장수를 마셨다 갈증 +'+Math.round(a))}},
-  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+최대 40)':'물통이 필요하다',on:w>=1&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{const a=Math.min(S.tkW,40,100-(S.bw||0));S.tkW-=a;S.bw=(S.bw||0)+a;sfx('drink');toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
+  {l:'물 마시기',sub:'갈증 +최대 '+Math.round(Math.min(w,100-S.th)),on:w>=1&&S.th<100,f:()=>{const a=Math.min(S.tkW,100-S.th);S.th+=a;S.tkW-=a;toast('저장수를 마셨다 갈증 +'+Math.round(a))}},
+  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+최대 40)':'물통이 필요하다',on:w>=1&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{const a=Math.min(S.tkW,40,100-(S.bw||0));S.tkW-=a;S.bw=(S.bw||0)+a;toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
  purifier2:()=>{const pw=S.pw|0;return{t:'💧 고급 정수기',st:'전력 '+pw+' · 1회 전력 20',a:[
-  {l:'물 마시기',sub:'갈증 +60 · 전력 20',on:pw>=20&&purCd<=0&&S.th<100,f:()=>{S.pw-=20;S.th=Math.min(100,S.th+60);purCd=2;sfx('drink');toast('고급 정수기: 갈증 +60')}},
-  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+60) · 전력 20':'물통이 필요하다',on:pw>=20&&purCd<=0&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{S.pw-=20;S.bw=Math.min(100,(S.bw||0)+60);purCd=2;sfx('drink');toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
+  {l:'물 마시기',sub:'갈증 +60 · 전력 20',on:pw>=20&&purCd<=0&&S.th<100,f:()=>{S.pw-=20;S.th=Math.min(100,S.th+60);purCd=2;toast('고급 정수기: 갈증 +60')}},
+  {l:'물통에 담기',sub:S.tool.bottle?'물통 '+Math.round(S.bw||0)+'% (+60) · 전력 20':'물통이 필요하다',on:pw>=20&&purCd<=0&&!!S.tool.bottle&&(S.bw||0)<100,f:()=>{S.pw-=20;S.bw=Math.min(100,(S.bw||0)+60);purCd=2;toast('물통에 담았다 ('+Math.round(S.bw)+'%)');save()}}]}},
  smelter:()=>({t:'⚒️ 금속 제련로',st:'고철·광석을 녹여 금속을 얻는다',a:['ingot','ingot2','copper'].map(id=>prAct(PR.find(p=>p.id===id)))})
 },
 FMPOS={planter:()=>S.pl,purifier:()=>S.pur,furnace:()=>S.fur,smelter:()=>S.sm,collector:()=>S.col,tank:()=>S.tnk,purifier2:()=>S.pu2};
@@ -304,12 +305,12 @@ function useFac(k){if(dead||panelOn||ex||build||dm)return;
  const MN={planter:[S.pl,22,'재배 상자'],purifier:[S.pur,24,'간이 정수기'],furnace:[S.fur,24,'화로'],smelter:[S.sm,22,'제련로'],collector:[S.col,24,'빗물 수집기'],tank:[S.tnk,22,'물 저장 탱크'],purifier2:[S.pu2,22,'고급 정수기']};
  if(MN[k]){if(dist(MN[k][0])<MN[k][1])fmOpen(k);else{fmClose();far(MN[k][2])}return}
  fmClose();
- if(k==='fuelt'){if(nf(S.ft)){if(S.inv.fuel>0&&(S.fl||0)<=70){S.inv.fuel--;S.fl=Math.min(100,(S.fl||0)+30);sfx('fire');toast('연료를 넣었다 ('+Math.round(S.fl)+'%)');renderInv();save()}else toast((S.fl||0)>70?'연료통이 가득하다':'연료가 없다 (화로를 눌러 만들자) · 연료통 '+Math.round(S.fl||0)+'%')}else far('연료통');return}
+ if(k==='fuelt'){if(nf(S.ft)){if(S.inv.fuel>0&&(S.fl||0)<=70){S.inv.fuel--;S.fl=Math.min(100,(S.fl||0)+30);toast('연료를 넣었다 ('+Math.round(S.fl)+'%)');renderInv();save()}else toast((S.fl||0)>70?'연료통이 가득하다':'연료가 없다 (화로를 눌러 만들자) · 연료통 '+Math.round(S.fl||0)+'%')}else far('연료통');return}
  if(k==='gen'){if(nf(S.gn))toast('발전기: '+((S.fl||0)>0?'밤에 가동 중':'연료가 없다')+' · 전력 '+Math.round(S.pw||0));else far('발전기');return}
  if(k==='elamp'){if(nf(S.el))toast('전등: 밤에 전력으로 밝힌다 · 전력 '+Math.round(S.pw||0));else far('전등');return}
  if(k==='bed'){if(dist(S.bd)<22){if(sleepCd>0)toast('아직 졸리지 않다 ('+Math.ceil(sleepCd)+'초)');else{S.st=100;S.hp=Math.min(100,S.hp+20);S.tm+=40;S.hu=Math.max(0,S.hu-8);S.th=Math.max(0,S.th-10);sleepCd=60;flash=.6;toast('잠시 눈을 붙였다. 기력·체력 회복 (허기·갈증 소모)');save()}}else far('침대');return}
- if(k==='tank'){if(dist(S.tnk)<22){const a=Math.min(S.tkW||0,100-S.th);if(a<1)toast(S.tkW>0?'갈증이 없다':'탱크가 비었다 (수집기에서 넘친 물이 모인다)');else{S.th+=a;S.tkW-=a;sfx('drink');toast('저장수를 마셨다 갈증 +'+Math.round(a))}}else far('물 저장 탱크');return}
- if(k==='purifier2'){if(dist(S.pu2)<22){if(purCd>0)toast('정수 중…');else if((S.pw|0)<20)toast('전력이 부족하다 (태양광 발전기 필요)');else{S.pw-=20;S.th=Math.min(100,S.th+60);purCd=2;sfx('drink');toast('고급 정수기: 갈증 +60')}}else far('고급 정수기');return}
+ if(k==='tank'){if(dist(S.tnk)<22){const a=Math.min(S.tkW||0,100-S.th);if(a<1)toast(S.tkW>0?'갈증이 없다':'탱크가 비었다 (수집기에서 넘친 물이 모인다)');else{S.th+=a;S.tkW-=a;toast('저장수를 마셨다 갈증 +'+Math.round(a))}}else far('물 저장 탱크');return}
+ if(k==='purifier2'){if(dist(S.pu2)<22){if(purCd>0)toast('정수 중…');else if((S.pw|0)<20)toast('전력이 부족하다 (태양광 발전기 필요)');else{S.pw-=20;S.th=Math.min(100,S.th+60);purCd=2;toast('고급 정수기: 갈증 +60')}}else far('고급 정수기');return}
  if(k==='radio'){if(dist(S.rad)<22)useRadio();else far('무전기');return}
  if(k==='collector'){if(dist(S.col)<24){const w=S.colW||0;if(w<10)toast('빗물이 아직 모자란다 ('+Math.floor(w)+'%)');else{const a=Math.min(w,100-S.th);if(a<1)toast('갈증이 없다');else{S.th+=a;S.colW=w-a;toast('빗물을 마셨다 갈증 +'+Math.round(a))}}}else far('빗물 수집기');return}
  }
@@ -319,9 +320,9 @@ function pickUp(reach,hk,ax){let best=null,bd=1e9;items.forEach(i=>{const d=Math
  if(best.k==='crate'&&bd>18&&!(hk==='hook3'||hk==='hook4')){toast('보급 상자는 무거워 끌어올 수 없다 (금속 갈고리를 고르자, 가까이서는 맨손으로 줍기 가능)');return true}
  if(hk==='hook4'&&bd>16&&(S.pw|0)<3){toast('전력이 부족하다 (전동 갈고리는 전력 3 필요)');return true}
  items.splice(items.indexOf(best),1);let gain=1;
- if(best.k==='crate')crate();else{S.inv[best.k]++;if(best.k==='wood'&&ax){const bn=ax==='maxe'?2:1;S.inv.wood=Math.min(20,S.inv.wood+bn);gain=1+bn;use(ax);sfx('chop')}}
+ if(best.k==='crate')crate();else{S.inv[best.k]++;if(best.k==='wood'&&ax){const bn=ax==='maxe'?2:1;S.inv.wood=Math.min(20,S.inv.wood+bn);gain=1+bn;use(ax);}}
  if(bd>16&&hk){hookFx={x:best.x,y:best.y,t:.18};if(hk==='hook4')S.pw=Math.max(0,S.pw-3);use(hk)}
- if(best.k!=='crate'){sfx('pick');toast('+'+gain+' '+T[best.k].n)}
+ if(best.k!=='crate'){toast('+'+gain+' '+T[best.k].n)}
  renderInv();save();return true}
 function act(){if(dead||panelOn||ex)return;actT=.25;if(build){place();return}if(dm){doDm();return}
  const k=hbCur();
@@ -335,8 +336,8 @@ function act(){if(dead||panelOn||ex)return;actT=.25;if(build){place();return}if(
   if(shark&&shark.st!=='flee'&&dist([shark.x,shark.y])<36){shark.st='flee';shark.bites+=ms?9:1;toast('창으로 상어를 쫓아냈다!');hookFx={x:shark.x,y:shark.y,t:.18};use(k);return}
   toast('쫓아낼 상어·해파리가 가까이 없다');return}
  if(k==='wrench'||k==='hammer'||k==='mhammer'){const bn2=brkNear();
-  if(bn2){if(k==='wrench'){delete S.brk[bn2];sfx('craft');toast(R.find(x=>x.id===bn2).n+' 렌치로 수리 완료');save();return}
-   if(S.inv.scrap>=1&&S.inv.wood>=1){S.inv.scrap--;S.inv.wood--;delete S.brk[bn2];sfx('craft');toast(R.find(x=>x.id===bn2).n+' 수리 완료');renderInv();save()}else toast('고장났다: 나무 1·고철 1로 수리 (렌치는 재료 없이 수리)');return}
+  if(bn2){if(k==='wrench'){delete S.brk[bn2];toast(R.find(x=>x.id===bn2).n+' 렌치로 수리 완료');save();return}
+   if(S.inv.scrap>=1&&S.inv.wood>=1){S.inv.scrap--;S.inv.wood--;delete S.brk[bn2];toast(R.find(x=>x.id===bn2).n+' 수리 완료');renderInv();save()}else toast('고장났다: 나무 1·고철 1로 수리 (렌치는 재료 없이 수리)');return}
   if(k==='wrench'){toast('고장난 시설이 가까이 없다');return}
   let bk=null,bd2=1e9;S.tiles.forEach(t2=>{if((S.dur[t2]??100)<100){const[p,q]=t2.split(',').map(Number),d=Math.hypot(p*16+8-S.x,q*16+8-S.y);if(d<bd2){bd2=d;bk=t2}}});
   if(bk&&bd2<22){if(S.inv.wood<1)toast('수리에는 나무 1개가 필요하다');else{S.inv.wood--;S.dur[bk]=Math.min(100,S.dur[bk]+(k==='mhammer'?60:30));toast('뗏목을 수리했다');use(k);renderInv();save()}return}
@@ -344,12 +345,12 @@ function act(){if(dead||panelOn||ex)return;actT=.25;if(build){place();return}if(
  if(k==='rod'||k==='rod2'){if(fs.on){if(fs.bite>0){reel();return}fs.on=false;toast('낚싯줄을 거두었다');return}
   if(!ok(S.x+face.x*14,S.y+face.y*14)){fs={on:true,t:2+Math.random()*3,bite:0,k:pickFish(k),rt:k};toast('찌를 던졌다…')}else toast('물가에서 바다를 향해 던지세요');return}
  if(k==='pickaxe'||k==='cutter'){const il=nearIsl();if(il&&!il.done)explore(il,k);else toast('탐사할 섬·폐선이 가까이 없다');return}
- if(k==='bottle'){const w=S.bw||0;if(w<=0)toast('물통이 비었다 (정수기·빗물을 담자)');else if(S.th>=100)toast('갈증이 없다');else{const x=Math.min(w,100-S.th);S.bw=w-x;S.th+=x;sfx('drink');toast('물통의 물을 마셨다 갈증 +'+Math.round(x));renderInv();save()}return}
+ if(k==='bottle'){const w=S.bw||0;if(w<=0)toast('물통이 비었다 (정수기·빗물을 담자)');else if(S.th>=100)toast('갈증이 없다');else{const x=Math.min(w,100-S.th);S.bw=w-x;S.th+=x;toast('물통의 물을 마셨다 갈증 +'+Math.round(x));renderInv();save()}return}
  toast('이 도구는 행동 버튼으로 쓰지 않는다')}
 const BW_PLACEHOLDER=0;
 const BW={fish:1.3,mack:1.1,squid:1,tuna:.75,deep:.65},FC2={fish:6,mack:8,squid:8,tuna:14,deep:18},pickFish=rt=>{const r=Math.random(),h=rt==='rod2',q=h?[.4,.65,.82]:[.55,.8,.93];return h&&Math.random()<.07?'deep':r<q[0]?'fish':r<q[1]?'mack':r<q[2]?'squid':'tuna'};
-function reel(){fs.on=false;const k=fs.k||pickFish();if((k==='tuna'||k==='deep')&&S.st<15){toast('기력이 모자라 대어를 놓쳤다! (기력 15 이상 필요)');return}use(fs.rt||(S.tool.rod2?'rod2':'rod'));S.st=Math.max(0,S.st-(FC2[k]||8));if(S.inv[k]>=20){toast('가방이 가득 찼다');return}cfx={k,t:0,x:S.x+face.x*22,y:S.y+face.y*22};S.inv[k]++;sfx('pick');toast(T[k].n+(k==='tuna'?'! 대어다':'')+' +1');renderInv();save()}
-function eat(){if(dead||panelOn)return;if(S.bw>0&&S.th<70){const a=Math.min(S.bw,100-S.th);S.bw-=a;S.th+=a;sfx('drink');toast('물통의 물을 마셨다 갈증 +'+Math.round(a));save();return}const mk=['stew','hfish','bcorn','bpotato'].find(k=>S.inv[k]>0);if(mk){eatK(mk);return}if(S.inv.cooked>0){S.inv.cooked--;S.inf=0;S.hu=Math.min(100,S.hu+35);toast('구운 생선을 먹었다 허기 +35')}else if(S.inv.potato>0){S.inv.potato--;S.hu=Math.min(100,S.hu+15);toast('감자를 먹었다 허기 +15')}
+function reel(){fs.on=false;const k=fs.k||pickFish();if((k==='tuna'||k==='deep')&&S.st<15){toast('기력이 모자라 대어를 놓쳤다! (기력 15 이상 필요)');return}use(fs.rt||(S.tool.rod2?'rod2':'rod'));S.st=Math.max(0,S.st-(FC2[k]||8));if(S.inv[k]>=20){toast('가방이 가득 찼다');return}cfx={k,t:0,x:S.x+face.x*22,y:S.y+face.y*22};S.inv[k]++;toast(T[k].n+(k==='tuna'?'! 대어다':'')+' +1');renderInv();save()}
+function eat(){if(dead||panelOn)return;if(S.bw>0&&S.th<70){const a=Math.min(S.bw,100-S.th);S.bw-=a;S.th+=a;toast('물통의 물을 마셨다 갈증 +'+Math.round(a));save();return}const mk=['stew','hfish','bcorn','bpotato'].find(k=>S.inv[k]>0);if(mk){eatK(mk);return}if(S.inv.cooked>0){S.inv.cooked--;S.inf=0;S.hu=Math.min(100,S.hu+35);toast('구운 생선을 먹었다 허기 +35')}else if(S.inv.potato>0){S.inv.potato--;S.hu=Math.min(100,S.hu+15);toast('감자를 먹었다 허기 +15')}
  else if(CR.some(k=>S.inv[k]>0)){const k=CR.find(k=>S.inv[k]>0);S.inv[k]--;S.hu=Math.min(100,S.hu+CV[k]);if(k==='tomato'||k==='berry')S.th=Math.min(100,S.th+6);toast(T[k].n+'을(를) 먹었다 허기 +'+CV[k])}
  else if(['mack','squid','tuna','fish'].some(k=>S.inv[k]>0)){const k=['mack','squid','tuna','fish'].find(k=>S.inv[k]>0);S.inv[k]--;S.hu=Math.min(100,S.hu+{fish:8,mack:12,squid:10,tuna:18}[k]);if(Math.random()<.2)S.inf=90;toast('날것을 먹었다 허기 +'+{fish:8,mack:12,squid:10,tuna:18}[k])}else{toast('먹을 것이 없다');return}renderInv();save()}
 
@@ -369,21 +370,21 @@ $('again').onclick=()=>{S=fresh();hbInit();shark=null;sharkT=35;rainOn=false;rk=
 
 function update(dt){
  let dx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+jx,dy=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+jy;const m=Math.hypot(dx,dy);moving=m>.15&&!ex&&!rowing;runNow=false;rowIn(dx,dy,m,dt);
- if(moving){if(m>1){dx/=m;dy/=m}const run=(keys.shift||runB)&&S.st>2&&S.th>=15;runNow=run;if(run)S.st=Math.max(0,S.st-14*dt);bt=null;stepT-=dt;if(stepT<=0){stepT=run?.22:.34;sfx('step')}const sp=run?72:46;const nx=S.x+dx*sp*dt,ny=S.y+dy*sp*dt;if(ok(nx,S.y))S.x=nx;if(ok(S.x,ny))S.y=ny;const n=Math.hypot(dx,dy);face={x:dx/n,y:dy/n};if(fs.on){fs.on=false;toast('낚시를 멈췄다')}}
+ if(moving){if(m>1){dx/=m;dy/=m}const run=(keys.shift||runB)&&S.st>2&&S.th>=15;runNow=run;if(run)S.st=Math.max(0,S.st-14*dt);bt=null;stepT-=dt;if(stepT<=0){stepT=run?.22:.34;}const sp=run?72:46;const nx=S.x+dx*sp*dt,ny=S.y+dy*sp*dt;if(ok(nx,S.y))S.x=nx;if(ok(S.x,ny))S.y=ny;const n=Math.hypot(dx,dy);face={x:dx/n,y:dy/n};if(fs.on){fs.on=false;toast('낚시를 멈췄다')}}
  spawnT-=dt;if(spawnT<=0){spawnT=(.9+Math.random()*1.3)*(1+Math.min(1,day()*.08));if(items.length<16)spawn(false)}
- items.forEach(i=>{const m=1+sk*2.5;i.x+=i.vx*dt*m;i.y+=i.vy*dt*m});items=items.filter(i=>Math.hypot(i.x-S.x,i.y-S.y)<240);
- if(fs.on){fs.c=Math.min(1,(fs.c||0)+dt*2.5);if(fs.bite>0){fs.bite-=dt;if(fs.bite<=0){fs.on=false;toast('놓쳤다…')}}else{fs.t-=dt;if(fs.t<=0){fs.bite=(BW[fs.k]||1.1)+(fs.rt==='rod2'?.7:0);toast(fs.k==='tuna'||fs.k==='deep'?'묵직한 입질! 지금 행동!':'입질이다! 지금 행동!');sfx('splash')}}}
+ items.forEach(i=>{const m=1+sk*2.5;i.x+=i.vx*dt*m;i.y+=i.vy*dt*m});items=items.filter(i=>Math.hypot(i.x-S.x,i.y-S.y)<spawnR()+70);
+ if(fs.on){fs.c=Math.min(1,(fs.c||0)+dt*2.5);if(fs.bite>0){fs.bite-=dt;if(fs.bite<=0){fs.on=false;toast('놓쳤다…')}}else{fs.t-=dt;if(fs.t<=0){fs.bite=(BW[fs.k]||1.1)+(fs.rt==='rod2'?.7:0);toast(fs.k==='tuna'||fs.k==='deep'?'묵직한 입질! 지금 행동!':'입질이다! 지금 행동!');}}}
  sharkUpdate(dt);whaleUpdate(dt);weatherUpdate(dt);islUpdate(dt);S.tm=(S.tm||0)+dt;if(purCd>0)purCd-=dt;if(hookFx){hookFx.t-=dt;if(hookFx.t<=0)hookFx=null}
  S.hu-=.09*dif()*dt;S.th-=(.14+(hot()?.06:0))*dif()*dt;if(!runNow&&!(rowing&&Math.hypot(rv.x,rv.y)>3))S.st=Math.min(maxSt(),S.st+(moving?8:16)*dt);S.st=Math.min(S.st,maxSt());S.hu=Math.max(0,S.hu);S.th=Math.max(0,S.th);
  if(S.hu<=0||S.th<=0)S.hp-=(S.hu<=0&&S.th<=0?2.4:1.2)*dt;else if(S.hu>40&&S.th>40)S.hp=Math.min(100,S.hp+.5*dt);
  if(cold())S.hp-=.6*dt;if(S.inj>0){S.inj-=dt;S.hp-=.3*dt}if(S.inf>0)S.hp-=.2*dt;if(S.hp<=0&&!dead){dead=true;S.hp=0;fs.on=false;setPanel(false);$('over').classList.add('on');try{localStorage.removeItem('raft1')}catch(e){}idbDel()}
- cam.x+=(S.x-160-cam.x)*Math.min(1,dt*5);cam.y+=(S.y-90-cam.y)*Math.min(1,dt*5);
+ cam.x+=(S.x-VW/2-cam.x)*Math.min(1,dt*5);cam.y+=(S.y-VH/2-cam.y)*Math.min(1,dt*5);
  saveT+=dt;if(saveT>5){saveT=0;if(!dead)save()}}
 
 // drawing
 const SC=['#16667b','#1b778d','#2388a0','#2d9bb3','#58bcc9'];let ox=0,oy=0;
 const Rc=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x)-ox,Math.round(y)-oy,w,h)};
-function sea(){const sp=1+sk*2.2,bx=Math.floor(ox/4),by=Math.floor(oy/4);for(let j=0;j<=46;j++)for(let i=0;i<=81;i++){const wx=(bx+i)*4,wy=(by+j)*4,v=Math.sin((wx+SO.x)*.06+t*.7*sp)+Math.sin((wy+SO.y)*.08-t*.5*sp)+Math.sin((wx+wy+SO.x+SO.y)*.035+t*.35*sp)-rk*.5,k=v<-1.2?0:v<-.2?1:v<.9?2:v<1.8?3:4;g.fillStyle=SC[k];g.fillRect(wx-ox,wy-oy,4,4);if(k===4){g.fillStyle='#d9f4ee';g.fillRect(wx-ox+1,wy-oy+1,2,1)}}}
+function sea(){const sp=1+sk*2.2,bx=Math.floor(ox/4),by=Math.floor(oy/4);for(let j=0,JM=Math.ceil(VH/4)+1,IM=Math.ceil(VW/4)+1;j<=JM;j++)for(let i=0;i<=IM;i++){const wx=(bx+i)*4,wy=(by+j)*4,v=Math.sin((wx+SO.x)*.06+t*.7*sp)+Math.sin((wy+SO.y)*.08-t*.5*sp)+Math.sin((wx+wy+SO.x+SO.y)*.035+t*.35*sp)-rk*.5,k=v<-1.2?0:v<-.2?1:v<.9?2:v<1.8?3:4;g.fillStyle=SC[k];g.fillRect(wx-ox,wy-oy,4,4);if(k===4){g.fillStyle='#d9f4ee';g.fillRect(wx-ox+1,wy-oy+1,2,1)}}}
 function tile(gx,gy,b){const x=gx*16,y=gy*16+b;Rc(x,y,16,16,'#a8743f');
  for(let r=0;r<4;r++){Rc(x,y+r*4,16,1,'#bd8a52');Rc(x,y+r*4+3,16,1,'#7a4f2a');Rc(x+((r*5)%12)+2,y+r*4+1,1,1,'#4b2f1a');Rc(x+13-((r*3)%5),y+r*4+2,1,1,'#4b2f1a')}
  if(!has(gx,gy+1)){Rc(x,y+16,16,3,'#4a2f1a');Rc(x,y+19,16,1,'#0f4f60')}
@@ -447,7 +448,7 @@ function draw(){ox=Math.round(cam.x+Math.sin(t*23)*sk*1.5);oy=Math.round(cam.y+M
 
 let shark=null,sharkT=35;
 function mvS(tx,ty,sp){const dx=tx-shark.x,dy=ty-shark.y,d=Math.hypot(dx,dy);if(d>.5){const m=Math.min(sp,d);shark.x+=dx/d*m;shark.y+=dy/d*m;shark.fx=dx}return d}
-function bite(k,n=25,m='상어가 뗏목을 물었다!'){S.dur[k]=(S.dur[k]??100)-Math.round(n*(1+Math.min(.8,day()*.08))*(1-.25*((S.rf&&S.rf[k])|0)));toast(m);sfx('hit');if(S.dur[k]<=0){delete S.dur[k];if(S.rf)delete S.rf[k];if(S.tiles.length>1){S.tiles.splice(S.tiles.indexOf(k),1);const[p,q]=k.split(',').map(Number),cx=p*16+8,cy=q*16+8;if(S.pur&&S.pur[0]===cx&&S.pur[1]===cy)S.pur=null;if(S.fur&&S.fur[0]===cx&&S.fur[1]===cy)S.fur=null;if(S.col&&S.col[0]===cx&&S.col[1]===cy)S.col=null;if(S.pl&&S.pl[0]===cx&&S.pl[1]===cy)S.pl=null;if(S.rad&&S.rad[0]===cx&&S.rad[1]===cy)S.rad=null;if(S.bn&&S.bn[0]===cx&&S.bn[1]===cy)S.bn=null;if(S.lan&&S.lan[0]===cx&&S.lan[1]===cy)S.lan=null;for(const f of['sol','pu2','eng','aut','tnk','bd','fn','sm','ft','gn','el'])if(S[f]&&S[f][0]===cx&&S[f][1]===cy)S[f]=null;if(S.chs&&S.chs[0]===cx&&S.chs[1]===cy){S.chs=null;S.ch={}}if(!ok(S.x,S.y)){let bd=1e9;S.tiles.forEach(j=>{const[a,b]=j.split(',').map(Number),d=Math.hypot(a*16+8-S.x,b*16+8-S.y);if(d<bd){bd=d;S.x=a*16+8;S.y=b*16+8}})}toast('타일이 부서졌다!')}else S.dur[k]=10}save()}
+function bite(k,n=25,m='상어가 뗏목을 물었다!'){S.dur[k]=(S.dur[k]??100)-Math.round(n*(1+Math.min(.8,day()*.08))*(1-.25*((S.rf&&S.rf[k])|0)));toast(m);if(S.dur[k]<=0){delete S.dur[k];if(S.rf)delete S.rf[k];if(S.tiles.length>1){S.tiles.splice(S.tiles.indexOf(k),1);const[p,q]=k.split(',').map(Number),cx=p*16+8,cy=q*16+8;if(S.pur&&S.pur[0]===cx&&S.pur[1]===cy)S.pur=null;if(S.fur&&S.fur[0]===cx&&S.fur[1]===cy)S.fur=null;if(S.col&&S.col[0]===cx&&S.col[1]===cy)S.col=null;if(S.pl&&S.pl[0]===cx&&S.pl[1]===cy)S.pl=null;if(S.rad&&S.rad[0]===cx&&S.rad[1]===cy)S.rad=null;if(S.bn&&S.bn[0]===cx&&S.bn[1]===cy)S.bn=null;if(S.lan&&S.lan[0]===cx&&S.lan[1]===cy)S.lan=null;for(const f of['sol','pu2','eng','aut','tnk','bd','fn','sm','ft','gn','el'])if(S[f]&&S[f][0]===cx&&S[f][1]===cy)S[f]=null;if(S.chs&&S.chs[0]===cx&&S.chs[1]===cy){S.chs=null;S.ch={}}if(!ok(S.x,S.y)){let bd=1e9;S.tiles.forEach(j=>{const[a,b]=j.split(',').map(Number),d=Math.hypot(a*16+8-S.x,b*16+8-S.y);if(d<bd){bd=d;S.x=a*16+8;S.y=b*16+8}})}toast('타일이 부서졌다!')}else S.dur[k]=10}save()}
 function sharkUpdate(dt){const[cx,cy]=center();
  if(!shark){sharkT-=dt;if(sharkT<=0){const a=Math.random()*6.283;shark={x:cx+Math.cos(a)*100,y:cy+Math.sin(a)*100,a,st:'circle',t:6+Math.random()*3,bites:0,life:55,fx:1};toast('상어가 나타났다!')}return}
  shark.life-=dt;
@@ -461,12 +462,12 @@ function weatherUpdate(dt){wT-=dt;if(wT<=0){if(rainOn||fogOn){rainOn=stormOn=fog
   else if(Math.random()<.1+Math.min(.15,day()*.015)){rainOn=stormOn=tyOn=true;wT=45;stT=3;toast('🌪 태풍이 접근한다! 닻을 내리고 뗏목을 점검하자')}
   else{const r=Math.random();if(r<.5){rainOn=true;wT=40+Math.random()*30;toast('비가 내리기 시작한다…')}else if(r<.75){rainOn=stormOn=true;wT=35+Math.random()*20;stT=6;toast('폭풍이 몰려온다! 뗏목을 점검하자')}else{fogOn=true;wT=45+Math.random()*30;fogC=10;toast('짙은 안개가 낀다…')}}}
  rk+=((rainOn?1:0)-rk)*Math.min(1,dt*.5);sk+=((stormOn?1+tyk*.7:0)-sk)*Math.min(1,dt*.5);tyk+=((tyOn?1:0)-tyk)*Math.min(1,dt*.5);fk+=((fogOn?1:0)-fk)*Math.min(1,dt*.4);
- if(stormOn){stT-=dt;if(stT<=0){stT=(7+Math.random()*5)/(1+tyk*2);flash=.5;sfx('thunder');stormFac();if(Math.random()<.6&&S.tiles.length)bite(S.tiles[Math.random()*S.tiles.length|0],Math.round((12+tyk*14)*(S.tool.anchor?.4:1)),'거센 파도가 뗏목을 때렸다!')}}
+ if(stormOn){stT-=dt;if(stT<=0){stT=(7+Math.random()*5)/(1+tyk*2);flash=.5;stormFac();if(Math.random()<.6&&S.tiles.length)bite(S.tiles[Math.random()*S.tiles.length|0],Math.round((12+tyk*14)*(S.tool.anchor?.4:1)),'거센 파도가 뗏목을 때렸다!')}}
  if(fogOn&&fogC>0){fogC-=dt;if(fogC<=0){fogC=-1;if(!isl&&Math.random()<.5){const a=Math.random()*6.283,[cx0,cy0]=center();isl={x:cx0+Math.cos(a)*150,y:cy0+Math.sin(a)*150,r:30,k:7,done:false};toast('안개 속에 미지의 섬이 나타났다!');return}spawn(false);const c=items[items.length-1],[cx,cy]=center(),a=Math.random()*6.283;c.k='crate';c.x=cx+Math.cos(a)*70;c.y=cy+Math.sin(a)*70;c.vx*=.3;c.vy*=.3;toast('안개 속에 무언가 떠 있다…')}}
  if(S.pl&&S.pl[2]===1){const P=S.pl;if(rk>.5)P[4]=100;if(P[4]>0){P[3]+=2.5*dt;P[4]=Math.max(0,P[4]-2*dt);if(P[3]>=100){P[2]=2;toast(T[P[5]||'potato'].n+'이(가) 다 자랐다!')}}}
  if(S.col&&rk>.5)S.colW=Math.min(100,(S.colW||0)+4*dt);
  crateT-=dt;if(crateT<=0){crateT=100+Math.random()*60;spawn(false);items[items.length-1].k='crate';toast('보급 상자가 떠내려온다!')}}
-function weather(){if(rk<.02)return;g.fillStyle=`rgba(12,28,48,${rk*.3+sk*.2+tyk*.3})`;g.fillRect(0,0,320,180);g.fillStyle=`rgba(200,232,242,${.35+rk*.4})`;const n=Math.round(90*rk+90*sk+90*tyk);for(let i=0;i<n;i++)g.fillRect((i*47+Math.floor(t*(30+70*sk)))%320,Math.floor((i*29+t*150*(1+i%3*.25))%190)-6,1,3)}
+function weather(){if(rk<.02)return;g.fillStyle=`rgba(12,28,48,${rk*.3+sk*.2+tyk*.3})`;g.fillRect(0,0,VW,VH);g.fillStyle=`rgba(200,232,242,${.35+rk*.4})`;const n=Math.round(90*rk+90*sk+90*tyk);for(let i=0;i<n;i++)g.fillRect((i*47+Math.floor(t*(30+70*sk)))%VW,Math.floor((i*29+t*150*(1+i%3*.25))%(VH+10))-6,1,3)}
 function crate(){const P=['scrap','scrap','cloth','rope','plastic','wood','fish','fish','cooked','seed','seed','shard','shard','stone','clay','metal','fuel','elec'],o={},m=[];for(let i=0;i<4;i++){const k=P[Math.random()*P.length|0];o[k]=(o[k]||0)+1+(Math.random()<.3?1:0)}for(const k in o){S.inv[k]=(S.inv[k]|0)+o[k];m.push(T[k].n+' ×'+o[k])}toast('보급 상자! '+m.join(', '))}
 const MAXU={mspear:25,maxe:40,hook2:50,rod2:30,axe:20,hook:25,rod:12,spear:8,hammer:15,paddle:40,saw:20,mhammer:30,knife:25,pickaxe:20,cutter:15,hook3:70,hook4:90};
 const dur=k=>S.tu[k]??MAXU[k];
@@ -478,8 +479,8 @@ function freeTile(){let k,n=0;do{k=S.tiles[Math.random()*S.tiles.length|0].split
 function plant(){const P=S.pl;if(!P||P[2]!==0)return;if(S.inv.seed>0){S.inv.seed--;P[2]=1;P[3]=0;P[4]=0;P[5]=['potato','carrot','tomato','corn','berry','herb'][Math.random()*6|0];toast('씨앗을 심었다 ('+T[P[5]].n+'). 물이 필요하다');renderInv();save()}else toast('심을 씨앗이 없다')}
 function waterPl(){const P=S.pl;if(!P||P[2]!==1)return;if(P[4]>20)toast('아직 촉촉하다');else if((S.colW||0)>=15){S.colW-=15;P[4]=100;toast('물을 주었다');save()}else toast('물이 필요하다 — 비를 기다리거나 수집기에 물을 모으자')}
 function harvest(){const P=S.pl;if(!P||P[2]!==2)return;const c=P[5]||'potato';S.inv[c]=(S.inv[c]|0)+3;P[2]=0;P[3]=0;toast(T[c].n+'을(를) 수확했다 ×3');renderInv();save()}
-function fog(){if(flash>0){g.fillStyle=`rgba(255,255,255,${flash})`;g.fillRect(0,0,320,180);flash=Math.max(0,flash-.03)}
- if(fk<.02)return;const r=S.tool.torch?54:40,px=S.x-ox,py=S.y-6-oy;const D=nid.data;for(let j=0;j<45;j++)for(let i=0;i<80;i++){const m=Math.max(0,Math.min(1,(Math.hypot(i*4+2-px,j*4+2-py)-r*.5)/(r*1.1))),k=Math.round(fk*m*5),o=(j*80+i)*4;D[o]=196;D[o+1]=212;D[o+2]=216;D[o+3]=Math.round(k/9*255)}nx.putImageData(nid,0,0);g.imageSmoothingEnabled=false;g.drawImage(nc,0,0,320,180)}
+function fog(){if(flash>0){g.fillStyle=`rgba(255,255,255,${flash})`;g.fillRect(0,0,VW,VH);flash=Math.max(0,flash-.03)}
+ if(fk<.02)return;const r=S.tool.torch?54:40,px=S.x-ox,py=S.y-6-oy;const D=ensureNid().data,NW=nc.width,NH=nc.height;for(let j=0;j<NH;j++)for(let i=0;i<NW;i++){const m=Math.max(0,Math.min(1,(Math.hypot(i*4+2-px,j*4+2-py)-r*.5)/(r*1.1))),k=Math.round(fk*m*5),o=(j*NW+i)*4;D[o]=196;D[o+1]=212;D[o+2]=216;D[o+3]=Math.round(k/9*255)}nx.putImageData(nid,0,0);g.imageSmoothingEnabled=false;g.drawImage(nc,0,0,NW*4,NH*4)}
 let isl=null,islT=50,ex=null,rowing=false,rowT=0;const rv={x:0,y:0},SO={x:0,y:0};
 const INAME=['무인도','폐선','등대','송신기','연구 시설','버려진 플랫폼','군사 시설','미지의 섬'],NOTES=['일지: 구조 신호가 매일 밤 같은 방향에서 온다.','일지: 신호의 근원은 폭풍 너머 연구 시설이다.','낡은 지도: 먼 바다에서 불빛이 깜박인다…','일지: 마지막 보급선은 돌아오지 않았다.','메모: 무전기가 있다면 신호를 잡을 수 있다.'];
 function rowUI(){const b=$('bRow');b.style.display=S.tool.paddle?'grid':'none';b.style.background=rowing?'#58bcc9':'';b.style.color=rowing?'#06121a':''}
@@ -522,7 +523,7 @@ function drawIsl(){const{r,k}=isl,X=Math.round(isl.x),Y=Math.round(isl.y);
  else if(k>=4)drawNew(isl,X,Y,ring)
  else{ring(r,'#6f7b82');ring(r-5,'#8c949c');Rc(X-4,Y-34,8,32,'#e8e2d4');for(let i=0;i<4;i++)Rc(X-4,Y-30+i*8,8,4,'#d65a4a');Rc(X-6,Y-38,12,4,'#2f3a40');Rc(X-1,Y-6,3,5,'#4a2f1a');if(dark()>.3||Math.floor(t*2)%2){Rc(X-8,Y-43,16,6,'rgba(242,211,106,.3)');Rc(X-3,Y-42,6,4,'#f2d36a')}}}
 function drawRow(b){if(!rowing||ex)return;const a=Math.sin(t*6),x=Math.round(S.x),y=Math.round(S.y)+b-6,tx=Math.round(x-face.x*15),ty=Math.round(y-face.y*12+a*2);line(x,y,tx,ty,'#a8743f');Rc(tx-1,ty-1,3,3,'#8a5a33');if(Math.floor(t*5)%2)Rc(tx-3,ty+2,6,1,'#d9f4ee')}
-function arrow(){if(S.tool.telescope&&!ex)items.forEach(i=>{if(i.k!=='crate')return;const sx=i.x-ox,sy=i.y-oy;if(sx>-6&&sx<326&&sy>-6&&sy<186)return;const a=Math.atan2(sy-90,sx-160),c=Math.cos(a),n=Math.sin(a),f=Math.min(150/(Math.abs(c)||.01),78/(Math.abs(n)||.01));g.fillStyle='#6fcf7f';g.fillRect(Math.round(160+c*f)-2,Math.round(90+n*f)-2,5,5)});if(!isl||ex)return;const sx=isl.x-ox,sy=isl.y-oy;if(sx>-10&&sx<330&&sy>-10&&sy<190)return;const a=Math.atan2(sy-90,sx-160),c=Math.cos(a),n=Math.sin(a),f=Math.min(150/(Math.abs(c)||.01),78/(Math.abs(n)||.01)),ax=160+c*f,ay=90+n*f;
+function arrow(){if(S.tool.telescope&&!ex)items.forEach(i=>{if(i.k!=='crate')return;const sx=i.x-ox,sy=i.y-oy;if(sx>-6&&sx<VW+6&&sy>-6&&sy<VH+6)return;const a=Math.atan2(sy-VH/2,sx-VW/2),c=Math.cos(a),n=Math.sin(a),f=Math.min((VW/2-10)/(Math.abs(c)||.01),(VH/2-12)/(Math.abs(n)||.01));g.fillStyle='#6fcf7f';g.fillRect(Math.round(VW/2+c*f)-2,Math.round(VH/2+n*f)-2,5,5)});if(!isl||ex)return;const sx=isl.x-ox,sy=isl.y-oy;if(sx>-10&&sx<VW+10&&sy>-10&&sy<VH+10)return;const a=Math.atan2(sy-VH/2,sx-VW/2),c=Math.cos(a),n=Math.sin(a),f=Math.min((VW/2-10)/(Math.abs(c)||.01),(VH/2-12)/(Math.abs(n)||.01)),ax=VW/2+c*f,ay=VH/2+n*f;
  g.fillStyle=Math.floor(t*3)%2?'#e8c76a':'#fff3c4';for(let d=-4;d<=4;d++){const w=4-Math.abs(d);g.fillRect(Math.round(ax)-w,Math.round(ay)+d,w*2+1,1)}}
 let radT=0;
 const SIGM=['송신기 기록: 여기는 3번 플랫폼. 응답 바람.','연구 로그: 신호는 사람이 아닌 장치가 보내고 있다.','중앙 서버: 구조 신호의 근원을 찾았다.'];
@@ -538,8 +539,8 @@ function useRadio(){if(dead||ex)return;
 function ending(){$('end').classList.add('on')}
 $('endBtn').onclick=()=>$('end').classList.remove('on');
 function dark(){return Math.max(0,Math.min(1,(.3-Math.cos(((S.tm||0)%240)/240*6.283))*1.1))}
-function night(){const d=dark();if(d<.02)return;const pr=S.tool.torch?46:24,L=[[S.x-ox,S.y-6-oy,pr]];if(S.fur)L.push([S.fur[0]-ox,S.fur[1]-oy,34]);if(S.lan&&!bk('lantern'))L.push([S.lan[0]-ox,S.lan[1]-oy,44]);if(S.el&&(S.pw||0)>1)L.push([S.el[0]-ox,S.el[1]-oy,52]);const D=nid.data;for(let j=0;j<45;j++)for(let i=0;i<80;i++){const x=i*4+2,y=j*4+2;let m=1;for(const[a,c,r]of L)m=Math.min(m,(Math.hypot(x-a,y-c)-r*.6)/(r*.7));m=Math.max(0,Math.min(1,m));const k=Math.min(4,Math.round(d*.76*m*5)),o=(j*80+i)*4;D[o]=5;D[o+1]=12;D[o+2]=38;D[o+3]=k*51}nx.putImageData(nid,0,0);g.imageSmoothingEnabled=false;g.drawImage(nc,0,0,320,180)
- if(d>.5)for(let i=0;i<30;i++)if(Math.floor(t*2+i)%5){g.fillStyle=`rgba(230,245,255,${d*.6})`;g.fillRect((i*97+Math.floor(t*1.2))%320,(i*53)%180,1,1)}}
+function night(){const d=dark();if(d<.02)return;const pr=S.tool.torch?46:24,L=[[S.x-ox,S.y-6-oy,pr]];if(S.fur)L.push([S.fur[0]-ox,S.fur[1]-oy,34]);if(S.lan&&!bk('lantern'))L.push([S.lan[0]-ox,S.lan[1]-oy,44]);if(S.el&&(S.pw||0)>1)L.push([S.el[0]-ox,S.el[1]-oy,52]);const D=ensureNid().data,NW=nc.width,NH=nc.height;for(let j=0;j<NH;j++)for(let i=0;i<NW;i++){const x=i*4+2,y=j*4+2;let m=1;for(const[a,c,r]of L)m=Math.min(m,(Math.hypot(x-a,y-c)-r*.6)/(r*.7));m=Math.max(0,Math.min(1,m));const k=Math.min(4,Math.round(d*.76*m*5)),o=(j*NW+i)*4;D[o]=5;D[o+1]=12;D[o+2]=38;D[o+3]=k*51}nx.putImageData(nid,0,0);g.imageSmoothingEnabled=false;g.drawImage(nc,0,0,NW*4,NH*4)
+ if(d>.5)for(let i=0;i<30;i++)if(Math.floor(t*2+i)%5){g.fillStyle=`rgba(230,245,255,${d*.6})`;g.fillRect((i*97+Math.floor(t*1.2))%VW,(i*53)%VH,1,1)}}
 let splT=0;
 const LOOT={4:(a,r)=>{a('metal',1+r(2));a('plastic',2);a('scrap',2);a('cloth',1)},5:(a,r)=>{a('scrap',4+r(3));a('metal',1);a('rope',2);a('cooked',1)},6:(a,r)=>{a('metal',2+r(2));a('scrap',3);a('cooked',2)},7:(a,r)=>{a('seed',3);a('berry',2);a('potato',1);if(Math.random()<.5)a('deep',1);a('metal',1)}},
 LOGK={1:['폐선 항해일지: 우리는 신호를 따라 북쪽으로 향했다.','선장의 메모: 안개 속에서 불빛이 우리를 불렀다.'],4:['연구 기록 #1: 신호는 해저 장치에서 시작된다.','연구 기록 #2: 장치는 스스로 복제하고 있다.','연구 기록 #3: 우리는 너무 늦게 알았다.'],5:['플랫폼 일지: 3번 플랫폼은 신호를 중계하던 곳이다.','작업자 메모: 밤마다 바다가 빛났다. 플랑크톤이 아니었다.'],6:['작전 문서: 해역 봉쇄. 신호 근원 접근 금지.','병사의 메모: 위에서는 우리를 잊었다.'],7:['낡은 스케치: 섬이 계속 위치를 바꾼다.','기록: 이 씨앗은 신호가 닿는 곳에서만 자란다.']};
@@ -549,57 +550,46 @@ function drawNew(i,X,Y,ring){const k=i.k,r=i.r;
  else if(k===5){Rc(X-24,Y-6,48,5,'#7a4a2a');Rc(X-24,Y-6,48,1,'#a86a3a');for(let n=0;n<5;n++)Rc(X-22+n*10,Y-1,2,9,'#4a2f1a');Rc(X+10,Y-24,3,18,'#b85a3a');Rc(X-2,Y-24,15,3,'#b85a3a');Rc(X-2,Y-21,1,10,'#8a99a4')}
  else if(k===6){ring(r,'#5d6b4a');ring(r-5,'#6f7f5a');Rc(X-14,Y-12,28,12,'#46523a');Rc(X-14,Y-12,28,2,'#6f7f5a');Rc(X-6,Y-6,12,6,'#1c2418');Rc(X+16,Y-22,1,14,'#2f3a40');Rc(X+17,Y-22,8,5,Math.floor(t*2)%2?'#d65a4a':'#a8402f')}
  else{ring(r,'#6a5a8a');ring(r-6,'#8a7aaa');for(let n=0;n<4;n++){const h=8+n*3,x=X-12+n*8;Rc(x,Y-h,4,h,'#b8a0e8');Rc(x,Y-h,2,h,'#e8dcff')}if(Math.floor(t*3)%2)Rc(X-2,Y-26,2,2,'#fff')}}
-function fishFx(){g.fillStyle='rgba(8,50,64,.35)';for(let i=0;i<6;i++){const x=Math.round((i*83+t*(5+i*2))%360)-20,y=(i*47+20)%170;g.fillRect(x,y,6,2);g.fillRect(x-2,y,2,1);g.fillRect(x+6,y,1,1)}}
-let mNext=0,mi=0;
-function note(f,d,ty,v){const n=AC.currentTime,o=AC.createOscillator(),gn=AC.createGain();o.type=ty;o.frequency.value=f;gn.gain.setValueAtTime(0,n);gn.gain.linearRampToValueAtTime(v,n+.05);gn.gain.exponentialRampToValueAtTime(.0001,n+d);o.connect(gn);gn.connect(AC.destination);o.start(n);o.stop(n+d+.1)}
-function music(){const nw=performance.now()/1000;if(nw<mNext||AC.state!=='running')return;const st=sk>.3,sc=st?[147,175,196,220,262,294]:[262,294,330,392,440,523],m=dark()>.5?.5:1;mNext=nw+(st?.5:1.4+Math.random()*.7);mi=(mi+1+(Math.random()*2|0))%sc.length;note(sc[mi]*m,st?.6:2.2,st?'triangle':'sine',st?.05:.035);if(!st&&Math.random()<.35)note(sc[(mi+2)%sc.length]*m/2,3,'sine',.025)}
-let sleepCd=0,fnT=30,stepT=0,crT=0,actT=0,tutT=0;const bk=id=>S.brk&&S.brk[id],nc=document.createElement('canvas'),nx=nc.getContext('2d');nc.width=80;nc.height=45;const nid=nx.createImageData(80,45);
+function fishFx(){g.fillStyle='rgba(8,50,64,.35)';for(let i=0;i<6;i++){const x=Math.round((i*83+t*(5+i*2))%(VW+40))-20,y=(i*47+20)%(VH-10);g.fillRect(x,y,6,2);g.fillRect(x-2,y,2,1);g.fillRect(x+6,y,1,1)}}
+let sleepCd=0,fnT=30,stepT=0,crT=0,actT=0,tutT=0;const bk=id=>S.brk&&S.brk[id],nc=document.createElement('canvas'),nx=nc.getContext('2d');nc.width=80;nc.height=45;let nid=nx.createImageData(80,45);function ensureNid(){const w=Math.ceil(VW/4),h=Math.ceil(VH/4);if(nc.width!==w||nc.height!==h){nc.width=w;nc.height=h;nid=nx.createImageData(w,h)}return nid}
 function brkNear(){if(!S.brk)return null;for(const id in S.brk){const o=S[FAC[id]];if(o&&Math.hypot(o[0]-S.x,o[1]-S.y)<24)return id}return null}
 function stormFac(){if(Math.random()<.35*(S.tool.anchor?.4:1)){const ids=Object.keys(FAC).filter(i=>S[FAC[i]]&&!(S.brk&&S.brk[i]));if(ids.length){const i=ids[Math.random()*ids.length|0];(S.brk=S.brk||{})[i]=1;toast('폭풍에 '+R.find(x=>x.id===i).n+'이(가) 고장났다! 렌치·망치를 선택하고 가까이서 행동: 수리')}}}
 const TUT=[['조이스틱/WASD로 이동해 보자',()=>S.x!==16||S.y!==16],['맨손(✋)을 고르고 떠다니는 자원 가까이서 행동 버튼으로 줍자',()=>Object.values(S.inv).reduce((a,b)=>a+(b|0),0)>16],['제작 → 도구에서 돌도끼와 돌망치를 만들어 목재 기술을 열자',()=>techOn('wood')],['목재 톱을 만들고 가공 탭에서 판자를 만들자',()=>got('plank')],['판자로 작업대를 설치하자 (제작 → 건축). 이후 정교한 제작은 작업대를 눌러서',()=>S.bn],['갈고리(슬롯에서 선택)나 간이 정수기로 자원과 물을 확보하자',()=>S.pur||S.tool.hook],['작업대를 눌러 점토와 돌로 화로를 만들자 (섬 탐사로 점토를 얻는다)',()=>S.fur],['뗏목 타일을 늘려 보자',()=>S.tiles.length>4]];
-function tutTick(dt){const e=$('goal');S.tut=S.tut|0;if(S.tut>=TUT.length){e.style.display='none';return}e.style.display='block';e.textContent='목표: '+TUT[S.tut][0];tutT-=dt;if(tutT<=0){tutT=.5;if(TUT[S.tut][1]()){S.tut++;sfx('pick');if(S.tut>=TUT.length)toast('기본 생존법을 익혔다! 이제 자유롭게 탐험하자')}}}
+function tutTick(dt){const e=$('goal');S.tut=S.tut|0;if(S.tut>=TUT.length){e.style.display='none';return}e.style.display='block';e.textContent='목표: '+TUT[S.tut][0];tutT-=dt;if(tutT<=0){tutT=.5;if(TUT[S.tut][1]()){S.tut++;if(S.tut>=TUT.length)toast('기본 생존법을 익혔다! 이제 자유롭게 탐험하자')}}}
 let jf=null,jfT=70,cfx=null;const CFC={fish:'#8aa9c4',mack:'#4a8a9a',tuna:'#3a4a8a',squid:'#d9a0b0',deep:'#6a3a8a'};
 function jellyUpdate(dt){const[cx,cy]=center();if(!jf){if(dark()<.5)return;jfT-=dt;if(jfT<=0){const a=Math.random()*6.283;jf={x:cx+Math.cos(a)*120,y:cy+Math.sin(a)*120,hp:2,cd:0,life:60};toast('밤바다에 발광 해파리가 떠오른다! 창으로 쫓아내자')}return}
  jf.life-=dt;jf.cd-=dt;if(jf.life<=0||dark()<.3){jf=null;jfT=60+Math.random()*60;return}
  const d=Math.hypot(S.x-jf.x,S.y-jf.y)||1;if(d>14){const sp=Math.min(d,12*dt),nx=jf.x+(S.x-jf.x)/d*sp,ny=jf.y+(S.y-jf.y)/d*sp;if(!ok(nx,ny)){jf.x=nx;jf.y=ny}}
- if(d<20&&jf.cd<=0){jf.cd=2.5;S.hp-=6;S.st=Math.max(0,S.st-20);sfx('hit');toast('해파리에 쏘였다!')}}
+ if(d<20&&jf.cd<=0){jf.cd=2.5;S.hp-=6;S.st=Math.max(0,S.st-20);toast('해파리에 쏘였다!')}}
 function drawJelly(){const x=Math.round(jf.x),y=Math.round(jf.y+Math.sin(t*2)*1.5);Rc(x-7,y-6,14,12,'rgba(180,130,255,.18)');Rc(x-4,y-3,8,4,'rgba(200,160,255,.7)');Rc(x-3,y-4,6,1,'rgba(235,215,255,.9)');for(let i=0;i<4;i++)Rc(x-3+i*2,y+1+((t*4+i)%2|0),1,4,'rgba(180,130,240,.6)')}
 let tyk=0,tyOn=false,fallT=15,wh=null,whT=240;const CC={potato:'#d8b878',carrot:'#e8923a',tomato:'#e0434f',corn:'#e8d04a',berry:'#d83a5a',herb:'#5fae5a'},CR=['corn','carrot','tomato','berry','herb'],CV={corn:18,carrot:12,tomato:10,berry:8,herb:4};
 let autoT=10;
-function whaleUpdate(dt){const[cx,cy]=center();techT-=dt;if(techT<=0){techT=.5;techTick()}jellyUpdate(dt);tutTick(dt);if(sleepCd>0)sleepCd-=dt;if(S.fn&&!bk('fishnet')){fnT-=dt;if(fnT<=0){fnT=25+Math.random()*10;if((S.inv.fish|0)<20){S.inv.fish=(S.inv.fish|0)+1;renderInv();toast('낚시 시설이 생선을 낚았다')}}}if(S.fur&&Math.hypot(S.fur[0]-S.x,S.fur[1]-S.y)<60){crT-=dt;if(crT<=0){crT=.4+Math.random()*.8;sfx('fire')}}
+function whaleUpdate(dt){const[cx,cy]=center();techT-=dt;if(techT<=0){techT=.5;techTick()}jellyUpdate(dt);tutTick(dt);if(sleepCd>0)sleepCd-=dt;if(S.fn&&!bk('fishnet')){fnT-=dt;if(fnT<=0){fnT=25+Math.random()*10;if((S.inv.fish|0)<20){S.inv.fish=(S.inv.fish|0)+1;renderInv();toast('낚시 시설이 생선을 낚았다')}}}if(S.fur&&Math.hypot(S.fur[0]-S.x,S.fur[1]-S.y)<60){crT-=dt;if(crT<=0){crT=.4+Math.random()*.8;}}
  if(S.tnk&&S.col&&S.colW>=90){const a=Math.min(S.colW-50,200-(S.tkW||0));if(a>0){S.colW-=a;S.tkW=(S.tkW||0)+a}}
  if(S.sol&&!bk('solar'))S.pw=Math.min(PWM(),(S.pw||0)+(dark()<.3&&sk<.3?(rk>.3?.4:2.5):0)*dt);
  if(S.gn&&!bk('gen')&&(S.fl||0)>0&&dark()>.3){S.pw=Math.min(PWM(),(S.pw||0)+2.5*(S.tool.bigpow?2:1)*dt);S.fl=Math.max(0,S.fl-.25*dt)}
  if(S.el&&dark()>.3&&(S.pw||0)>0)S.pw=Math.max(0,S.pw-.1*dt);
  if(S.tool.afarm&&S.pl&&S.pl[2]===1&&(S.pw||0)>1&&S.pl[4]<30){S.pl[4]=100;S.pw-=1}
  if(S.aut&&!bk('auto')){autoT-=dt;if(autoT<=0){autoT=10;let b=null,bd=90;items.forEach(i=>{const d=Math.hypot(i.x-S.aut[0],i.y-S.aut[1]);if(i.k!=='crate'&&d<bd){bd=d;b=i}});if(b&&S.inv[b.k]<20){items.splice(items.indexOf(b),1);S.inv[b.k]++;renderInv();toast('자동 수집: +1 '+T[b.k].n)}}}
- if(tyk>.5&&!ex&&!S.tool.anchor){fallT-=dt;if(fallT<=0){fallT=18+Math.random()*10;S.hp-=15;splT=.8;sfx('splash');toast('파도에 휩쓸려 바다에 빠졌다! 생명력 -15 (닻이 있으면 막을 수 있다)')}}
- if(!wh){if(sk>.3)return;whT-=dt;if(whT<=0){const a=Math.random()*6.283;wh={x:cx+Math.cos(a)*260,y:cy+Math.sin(a)*260,vx:-Math.cos(a)*9,vy:-Math.sin(a)*9,gift:false,life:0};toast('🐋 거대한 고래가 다가온다…');sfx('whale');setTimeout(()=>sfx('whale'),1600)}return}
+ if(tyk>.5&&!ex&&!S.tool.anchor){fallT-=dt;if(fallT<=0){fallT=18+Math.random()*10;S.hp-=15;splT=.8;toast('파도에 휩쓸려 바다에 빠졌다! 생명력 -15 (닻이 있으면 막을 수 있다)')}}
+ if(!wh){if(sk>.3)return;whT-=dt;if(whT<=0){const a=Math.random()*6.283;wh={x:cx+Math.cos(a)*260,y:cy+Math.sin(a)*260,vx:-Math.cos(a)*9,vy:-Math.sin(a)*9,gift:false,life:0};toast('🐋 거대한 고래가 다가온다…');}return}
  wh.life+=dt;wh.x+=wh.vx*dt;wh.y+=wh.vy*dt;
  if(!wh.gift&&Math.hypot(wh.x-cx,wh.y-cy)<90){wh.gift=true;for(let i=0;i<3;i++){spawn(true);const c=items[items.length-1];c.k='crate';c.x=wh.x+(Math.random()-.5)*50;c.y=wh.y+(Math.random()-.5)*50;c.vx*=.3;c.vy*=.3}toast('고래가 특별한 선물을 띄워 올렸다!');save()}
  if(wh.life>70){wh=null;whT=500+Math.random()*400}}
 function drawWhale(){const x=Math.round(wh.x),y=Math.round(wh.y),s=wh.vx>0?1:-1,B=(a,b,w,h,c)=>Rc(s>0?x+a:x-a-w,y+b,w,h,c),u=Math.round(Math.sin(t*.8)*1.5);
  B(-24,-3+u,48,10,'#2f4a6b');B(-20,-6+u,36,4,'#2f4a6b');B(-22,4+u,40,4,'#c9d9e4');B(-28,-9+u,5,7,'#2f4a6b');B(-32,-13+u,5,6,'#2f4a6b');B(16,-1+u,2,2,'#0f2030');B(-20,-2+u,30,1,'#46688f');
  if(Math.floor(t*2)%4<2){Rc(x,y-12+u,1,6,'#d9f4ee');Rc(x-2,y-14+u,5,1,'#d9f4ee')}}
-$('bSnd').addEventListener('pointerdown',e=>{e.preventDefault();initAudio();if(!AC)return;if(AC.state==='running'){AC.suspend();$('bSnd').textContent='무음'}else{AC.resume();$('bSnd').textContent='소리'}});
-let bow=0,AC=null,waveG,rainG,windG;const birds=[[50,30,12],[200,62,9],[120,20,15]];
+let bow=0;const birds=[[50,30,12],[200,62,9],[120,20,15]];
 function extras(){const d=dark(),F=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)},ph=((S.tm||0)%240)/240;
- if(d>.03&&d<.9){g.fillStyle=(ph<.5?'rgba(255,130,50,':'rgba(255,170,190,')+Math.sin(d*Math.PI)*.16+')';g.fillRect(0,0,320,180)}
- g.globalAlpha=(d>.5?.12:.3)+rk*.25;for(let i=0;i<3;i++){const x=((i*140+t*(4+i*2))%420)-50,y=14+i*22;F(x,y,24,4,'#e8f3ef');F(x+4,y-3,14,3,'#e8f3ef');F(x+10,y-5,6,2,'#e8f3ef')}g.globalAlpha=1;
+ if(d>.03&&d<.9){g.fillStyle=(ph<.5?'rgba(255,130,50,':'rgba(255,170,190,')+Math.sin(d*Math.PI)*.16+')';g.fillRect(0,0,VW,VH)}
+ g.globalAlpha=(d>.5?.12:.3)+rk*.25;for(let i=0;i<3;i++){const x=((i*140+t*(4+i*2))%(VW+100))-50,y=14+i*22;F(x,y,24,4,'#e8f3ef');F(x+4,y-3,14,3,'#e8f3ef');F(x+10,y-5,6,2,'#e8f3ef')}g.globalAlpha=1;
  if(splT>0){splT-=.016;for(let i=0;i<8;i++){const p=1-splT/.8,a=i*.8;F(S.x-ox+Math.cos(a)*p*14,S.y-oy-6-Math.sin(a*1.3)*p*14+p*p*10,2,2,'#d9f4ee')}}
  if(d<.35&&rk<.3&&sk<.3)birds.forEach(B=>{B[0]=(B[0]+B[2]*.016+340)%360;const x=B[0]-20,y=B[1]+Math.sin(t*2+B[2])*4,w=Math.floor(t*6+B[2])%2;F(x-3,y+w,3,1,'#f2f6f4');F(x,y+w,3,1,'#f2f6f4');F(x-1,y+1,2,1,'#f2f6f4')});
- if(bow>0){bow-=.016;g.globalAlpha=Math.min(1,bow/4)*.5;['#e0634f','#e8a24a','#e8d86a','#6fcf7f','#4fb3e0','#6a6fe0','#a06fd0'].forEach((c,i)=>{for(let a=0;a<=180;a+=2){const r=80+i*3,q=a*Math.PI/180;F(160-Math.cos(q)*r,130-Math.sin(q)*r*.8,2,2,c)}});g.globalAlpha=1}
- if(d>.4){g.globalAlpha=Math.min(1,d);for(let j=-6;j<=6;j++){const w=Math.round(Math.sqrt(36-j*j));F(262-w,24+j,w*2,1,'#f4efd0')}F(259,22,2,2,'#d9d2a8');F(264,27,2,1,'#d9d2a8');g.globalAlpha=1;
-  for(let i=0;i<36;i++)if(Math.floor(t*2+i)%4===0)F((i*83+Math.floor(t*3))%320,(i*131)%180,2,1,'rgba(120,255,230,'+d*.7+')');
+ if(bow>0){bow-=.016;g.globalAlpha=Math.min(1,bow/4)*.5;['#e0634f','#e8a24a','#e8d86a','#6fcf7f','#4fb3e0','#6a6fe0','#a06fd0'].forEach((c,i)=>{for(let a=0;a<=180;a+=2){const r=80+i*3,q=a*Math.PI/180;F(VW/2-Math.cos(q)*r,VH-50-Math.sin(q)*r*.8,2,2,c)}});g.globalAlpha=1}
+ if(d>.4){g.globalAlpha=Math.min(1,d);for(let j=-6;j<=6;j++){const w=Math.round(Math.sqrt(36-j*j));F(VW-58-w,24+j,w*2,1,'#f4efd0')}F(VW-61,22,2,2,'#d9d2a8');F(VW-56,27,2,1,'#d9d2a8');g.globalAlpha=1;
+  for(let i=0;i<36;i++)if(Math.floor(t*2+i)%4===0)F((i*83+Math.floor(t*3))%VW,(i*131)%VH,2,1,'rgba(120,255,230,'+d*.7+')');
   const sg=Math.floor(t/9);if(d>.6&&sg%9===1){const p=(t%9)/1.1;if(p<1){const x=40+p*140+(sg%3)*40,y=10+p*50;F(x,y,2,1,'#fff');F(x-6,y-3,5,1,'rgba(255,255,255,.5)');F(x-12,y-6,5,1,'rgba(255,255,255,.3)')}}}}
-function initAudio(){if(AC)return;try{AC=new(window.AudioContext||window.webkitAudioContext)();const b=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
- const mk=(ty,f,q)=>{const s=AC.createBufferSource();s.buffer=b;s.loop=true;const fl=AC.createBiquadFilter();fl.type=ty;fl.frequency.value=f;fl.Q.value=q;const gn=AC.createGain();gn.gain.value=0;s.connect(fl);fl.connect(gn);gn.connect(AC.destination);s.start();return gn};
- waveG=mk('lowpass',420,1);rainG=mk('highpass',3000,1);windG=mk('bandpass',700,.6)}catch(e){AC=null}}
-function audioTick(){if(!AC)return;music();if(Math.random()<.003&&dark()<.35&&rk<.3&&sk<.3)sfx('gull');const n=AC.currentTime;waveG.gain.setTargetAtTime(.05+.04*Math.sin(t*.6)+sk*.05,n,.3);rainG.gain.setTargetAtTime(rk*.05,n,.5);windG.gain.setTargetAtTime(.01+sk*.08,n,.5)}
-function sfx(k){if(!AC)return;const n=AC.currentTime,o=AC.createOscillator(),gn=AC.createGain(),F={pick:[660,990,.08],craft:[440,880,.18],splash:[300,120,.15],drink:[500,300,.12],fire:[200,260,.1],hit:[120,60,.2],thunder:[60,30,.9],step:[170,110,.04],chop:[220,80,.09],chest:[300,520,.1],gull:[1100,1700,.16],whale:[110,220,1.1]}[k]||[500,500,.05];o.type=k==='thunder'?'sawtooth':k==='whale'?'sine':k==='gull'?'triangle':'square';o.frequency.setValueAtTime(F[0],n);o.frequency.linearRampToValueAtTime(F[1],n+F[2]);gn.gain.setValueAtTime(k==='whale'?.07:k==='gull'?.025:k==='thunder'?.12:k==='step'?.015:k==='fire'?.02:.04,n);gn.gain.exponentialRampToValueAtTime(.0001,n+F[2]+.05);o.connect(gn);gn.connect(AC.destination);o.start(n);o.stop(n+F[2]+.1)}
-addEventListener('pointerdown',initAudio);addEventListener('keydown',initAudio);
-addEventListener('keydown',e=>{if(e.key.toLowerCase()==='m'&&AC)AC.state==='running'?AC.suspend():AC.resume()});
 addEventListener('beforeunload',()=>{if(!dead)save()});document.addEventListener('visibilitychange',()=>{if(!dead)save()});
 let last=performance.now();
-function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(!dead&&!panelOn){t+=dt;update(dt)}else t+=dt*(panelOn?0:1);fmTick(dt);draw();renderHud();rowUI();audioTick();requestAnimationFrame(loop)}
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(!dead&&!panelOn){t+=dt;update(dt)}else t+=dt*(panelOn?0:1);fmTick(dt);draw();renderHud();rowUI();requestAnimationFrame(loop)}
 hbInit();renderInv();toast('아래 슬롯에서 도구를 고르고 행동 버튼으로 사용 · 시설은 직접 눌러서 사용');requestAnimationFrame(loop);
