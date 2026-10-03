@@ -501,7 +501,7 @@ function fog(){if(flash>0){g.fillStyle=`rgba(255,255,255,${flash})`;g.fillRect(0
  if(fk<.02)return;const r=S.tool.torch?54:40,px=S.x-ox,py=S.y-6-oy;const D=ensureNid().data,NW=nc.width,NH=nc.height;for(let j=0;j<NH;j++)for(let i=0;i<NW;i++){const m=Math.max(0,Math.min(1,(Math.hypot(i*4+2-px,j*4+2-py)-r*.5)/(r*1.1))),k=Math.round(fk*m*5),o=(j*NW+i)*4;D[o]=196;D[o+1]=212;D[o+2]=216;D[o+3]=Math.round(k/9*255)}nx.putImageData(nid,0,0);g.imageSmoothingEnabled=false;g.drawImage(nc,0,0,NW*4,NH*4)}
 let isl=null,islT=50,ex=null,rowing=false,rowT=0;const rv={x:0,y:0},SO={x:0,y:0};
 const INAME=['무인도','폐선','등대','송신기','연구 시설','버려진 플랫폼','군사 시설','미지의 섬'],NOTES=['일지: 구조 신호가 매일 밤 같은 방향에서 온다.','일지: 신호의 근원은 폭풍 너머 연구 시설이다.','낡은 지도: 먼 바다에서 불빛이 깜박인다…','일지: 마지막 보급선은 돌아오지 않았다.','메모: 무전기가 있다면 신호를 잡을 수 있다.'];
-function rowUI(){const b=$('bRow');b.style.display=S.tool.paddle?'grid':'none';b.style.background=rowing?'#58bcc9':'';b.style.color=rowing?'#06121a':''}
+function rowUI(){const b=$('bRow');b.style.display=(S.tool.paddle||editing)?'grid':'none';b.style.background=rowing?'#58bcc9':'';b.style.color=rowing?'#06121a':''}
 function toggleRow(){if(dead||panelOn||ex)return;if(!S.tool.paddle){toast('노가 필요하다 (제작)');return}rowing=!rowing;fs.on=false;toast(rowing?'노를 젓는다 — 조이스틱/WASD가 항해 방향':'노를 거두었다')}
 function rowIn(dx,dy,m,dt){if(rowing&&!S.tool.paddle)rowing=false;let tx=0,ty=0;
  if(rowing&&!ex&&m>.15){const q=Math.min(1,m)*(S.st>1?1:.4);S.st=Math.max(0,S.st-2.5*dt);const eo=S.eng&&(S.fl||0)>0&&!bk('engine'),sp2=(eo?44:22)*(S.tool.nav?1.3:1);if(eo)S.fl=Math.max(0,S.fl-.8*dt);tx=dx/m*q*sp2;ty=dy/m*q*sp2;face={x:dx/m,y:dy/m};fs.on=false;rowT+=dt;if(rowT>=5){rowT=0;use('paddle')}}
@@ -608,6 +608,27 @@ function extras(){const d=dark(),F=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.r
   for(let i=0;i<36;i++)if(Math.floor(t*2+i)%4===0)F((i*83+Math.floor(t*3))%VW,(i*131)%VH,2,1,'rgba(120,255,230,'+d*.7+')');
   const sg=Math.floor(t/9);if(d>.6&&sg%9===1){const p=(t%9)/1.1;if(p<1){const x=40+p*140+(sg%3)*40,y=10+p*50;F(x,y,2,1,'#fff');F(x-6,y-3,5,1,'rgba(255,255,255,.5)');F(x-12,y-6,5,1,'rgba(255,255,255,.3)')}}}}
 addEventListener('beforeunload',()=>{if(!dead)save()});document.addEventListener('visibilitychange',()=>{if(!dead)save()});
+
+// ---- 설정 / 버튼 위치 편집 ----
+let editing=false,edDrag=null;
+const MOVIDS=['joy','bAct','bCraft','bRun','bRow','qs','bInfo','bSet'];
+MOVIDS.forEach(id=>$(id).classList.add('mv'));
+let LAY={};try{LAY=JSON.parse(localStorage.getItem('raftlayout')||'{}')}catch(e){}
+const saveLay=()=>{try{localStorage.setItem('raftlayout',JSON.stringify(LAY))}catch(e){}};
+function placeEl(el,fx,fy){const wr=W.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;let x=fx*wr.width,y=fy*wr.height;x=Math.max(0,Math.min(wr.width-w,x));y=Math.max(0,Math.min(wr.height-h,y));el.style.left=x+'px';el.style.top=y+'px';el.style.right='auto';el.style.bottom='auto';el.style.transform='none'}
+function applyLayout(){for(const id in LAY){const el=$(id),v=LAY[id];if(el&&v)placeEl(el,v[0],v[1])}}
+function resetLayout(){LAY={};saveLay();MOVIDS.forEach(id=>{const e=$(id);e.style.left=e.style.top=e.style.right=e.style.bottom=e.style.transform=''});toast('버튼 위치를 처음으로 되돌렸다')}
+function setEdit(v){editing=v;W.classList.toggle('edit',v);if(v){$('stp').classList.remove('on');setPanel(false);fmClose();pkClose();lpClose();$('det').classList.remove('on');dragMode=null;drag=null;jx=jy=0;$('knob').style.transform='';toast('버튼을 끌어서 원하는 곳에 놓으세요')}}
+W.addEventListener('pointerdown',e=>{if(!editing||e.target.closest('#edbar'))return;e.stopPropagation();e.preventDefault();const el=e.target.closest('.mv');if(!el)return;const r=el.getBoundingClientRect();edDrag={el,dx:e.clientX-r.left,dy:e.clientY-r.top}},true);
+addEventListener('pointermove',e=>{if(!edDrag)return;const wr=W.getBoundingClientRect(),el=edDrag.el;placeEl(el,(e.clientX-edDrag.dx-wr.left)/wr.width,(e.clientY-edDrag.dy-wr.top)/wr.height)});
+const edEnd=()=>{if(!edDrag)return;const el=edDrag.el,wr=W.getBoundingClientRect(),r=el.getBoundingClientRect();LAY[el.id]=[(r.left-wr.left)/wr.width,(r.top-wr.top)/wr.height];edDrag=null;saveLay()};
+addEventListener('pointerup',edEnd);addEventListener('pointercancel',edEnd);
+addEventListener('resize',applyLayout);applyLayout();
+$('bSet').addEventListener('pointerdown',e=>{e.preventDefault();if(dead)return;setPanel(false);$('stp').classList.toggle('on')});
+$('stp').addEventListener('pointerdown',e=>{if(e.target===$('stp')){e.preventDefault();$('stp').classList.remove('on')}});
+$('stEdit').onclick=()=>setEdit(true);$('stReset').onclick=()=>{resetLayout()};
+$('edDone').onclick=()=>{setEdit(false);toast('버튼 위치를 저장했다')};$('edReset').onclick=resetLayout;
+addEventListener('keydown',e=>{if(e.key==='Escape')$('stp').classList.remove('on')});
 let last=performance.now();
 function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;if(!dead&&!panelOn){t+=dt;update(dt)}else t+=dt*(panelOn?0:1);fmTick(dt);draw();renderHud();rowUI();requestAnimationFrame(loop)}
 hbInit();renderInv();toast('아래 슬롯에서 도구를 고르고 행동 버튼으로 사용 · 시설은 직접 눌러서 사용');requestAnimationFrame(loop);
