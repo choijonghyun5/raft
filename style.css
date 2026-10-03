@@ -71,3 +71,9 @@ html,body{position:fixed;inset:0;width:100%;overscroll-behavior:none;-webkit-tex
 #fm button small{display:block;opacity:.75;font-size:.68em}
 #fm button:disabled{opacity:.42;cursor:default}
 #fm .fx{width:100%;margin-top:calc(var(--u)*1.5);text-align:center;background:#0b1d2a}
+
+#lpm{left:50%;bottom:calc(var(--u)*24 + var(--sb));transform:translateX(-50%);display:none;background:var(--panel);border:var(--u) solid #e8c76a;padding:calc(var(--u)*3);z-index:6;text-align:center;line-height:1.5}
+#lpm.on{display:block}
+#lpm b{display:block;margin-bottom:calc(var(--u)*2)}
+#lpm button{font:inherit;font-weight:700;margin:0 calc(var(--u)*1);padding:calc(var(--u)*2) calc(var(--u)*5);background:#e8c76a;color:#2a1a12;border:0;cursor:pointer;white-space:nowrap}
+#lpm button[data-a=x]{background:#143040;color:var(--ink)}

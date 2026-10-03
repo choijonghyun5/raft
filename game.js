@@ -204,7 +204,6 @@ function renderPanel(){techTick();const vis=TABS.filter(tabVis);if(!vis.includes
  const rows=recs(tab,pmode).map(r=>{const own=S.tool[r.id]||(r.id==='purifier'&&S.pur)||(r.id==='furnace'&&S.fur)||(r.id==='collector'&&S.col)||(r.id==='chest'&&S.chs)||(r.id==='planter'&&S.pl)||(r.id==='radio'&&S.rad)||(r.id==='bench'&&S.bn)||(r.id==='lantern'&&S.lan)||(FAC[r.id]&&S[FAC[r.id]]);const gt=gate(r.id),can=!own&&gt.ok&&Object.entries(r.c).every(([k,v])=>S.inv[k]>=v);
   return `<div class="row"><div><b>${r.n}</b><small>${r.d}${TROLE[r.id]?`<br>⚖ ${LTW.includes(r.id)?'가벼움 · 기력 -1':'무거움 · 기력 -2'} · 수리 ${fixTxt(r.id)} · ${TROLE[r.id]}`:''}${MAXU[r.id]&&own?` <i>내구도 ${dur(r.id)}/${MAXU[r.id]}</i>`:''}</small>${Object.entries(r.c).map(([k,v])=>`<i class="${S.inv[k]>=v?'':'no'}">${ico(k)}${T[k].n} ${S.inv[k]}/${v}</i>`).join('')}</div>${MAXU[r.id]&&own&&dur(r.id)<MAXU[r.id]?`<button data-id="fix:${r.id}" ${Object.entries(FIXC(r.id)).every(([m,v])=>(S.inv[m]|0)>=v)?'':'disabled'}>수리 (${fixTxt(r.id)})</button>`:`<button data-id="${r.id}" ${can?'':'disabled'}>${own?'보유':(gt.ok?'제작':gt.msg)}</button>`}</div>`}).join('');
  let ch='';if(tab==='보관')ch=S.chs?'<div class="row"><b>보관함</b><small>5개씩 이동</small></div>'+['wood','plastic','rope','scrap','cloth','seed','fish','mack','squid','tuna','cooked','potato','carrot','tomato','corn','berry','metal','deep','branch','glass','junk','herb','bpotato','bcorn','stew','hfish','stone','plank','clay','shard','ore','cuore','copper','elec','battery','part','fuel','paper','ink'].map(k=>`<div class="row"><div>${ico(k)}${T[k].n} <small>가방 ${S.inv[k]|0} · 상자 ${S.ch[k]|0}</small></div><span><button data-m="put:${k}" ${S.inv[k]>0?'':'disabled'}>넣기</button> <button data-m="take:${k}" ${S.ch[k]>0&&(S.inv[k]|0)<20?'':'disabled'}>꺼내기</button></span></div>`).join(''):'<div class="row"><small>보관 상자를 만들면 여기서 자원을 넣고 뺄 수 있다</small></div>';
- if(tab==='건축'&&pmode!=='bench')ch='<div class="row"><div><b>시설 이동 / 철거</b><small>시설 가까이에서 행동 버튼. 철거하면 재료 절반 회수</small></div><span><button data-dm="move">이동</button> <button data-dm="del">철거</button></span></div>';
  if(tab==='건축')ch+=pmode==='bench'?buRow():rfRow();if(tab==='TECH TREE')ch=rsRows();if(tab==='가공')ch=prRows(pmode);if(tab==='일지')ch=S.log&&S.log.length?S.log.map(x=>'<div class="row"><small>'+x+'</small></div>').join(''):'<div class="row"><small>아직 발견한 기록이 없다</small></div>';
  const hint=pmode==='hand'&&['도구','물','건축','농업','고급','항해','식량'].includes(tab)?'<div class="row"><small>'+(S.bn?'정교한 도구·시설은 설치한 작업대를 눌러서 만든다':'작업대를 설치하면 정교한 도구·시설을 만들 수 있다')+'</small></div>':'';
  $('list').innerHTML=tabs+hint+rows+ch}
@@ -261,10 +260,27 @@ function doDm(){let bk=null,bd=24;for(const id in FAC){const o=S[FAC[id]];if(!o)
 cv.addEventListener('pointerdown',e=>{if(!build)return;const r=cv.getBoundingClientRect();bt={x:(e.clientX-r.left)/r.width*VW+ox,y:(e.clientY-r.top)/r.height*VH+oy}});
 
 const FTAP=['purifier','purifier2','collector','tank','planter','furnace','radio','bed','fuelt','gen','smelter','elamp'];
-cv.addEventListener('pointerdown',e=>{if(build||dm||panelOn||dead||ex)return;const r=cv.getBoundingClientRect(),wx=(e.clientX-r.left)/r.width*VW+ox,wy=(e.clientY-r.top)/r.height*VH+oy;
- let hit=null,bd=1e9;
- [...FTAP,'chest','bench'].forEach(id=>{const o=S[FAC[id]];if(!o)return;const dx=wx-o[0],dy=wy-o[1];if(Math.abs(dx)<=9&&dy>=-14&&dy<=9){const d=Math.hypot(dx,dy+3);if(d<bd){bd=d;hit=id}}});
- if(!hit){fmClose();return}if(hit!==fmId)fmClose();if(hit==='chest'){tab='보관';setPanel(true,'chest');return}if(hit==='bench'){if(Math.hypot(S.bn[0]-S.x,S.bn[1]-S.y)<40)setPanel(true,'bench');else toast('작업대 가까이 가서 누르자');return}useFac(hit)});
+const wpos=e=>{const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*VW+ox,(e.clientY-r.top)/r.height*VH+oy]};
+let lp=null,lpMenu=null,dragMode=null,drag=null;
+const facName=id=>(R.find(x=>x.id===id)||{n:id}).n;
+function hitFac(wx,wy,ids){let hit=null,bd=1e9;ids.forEach(id=>{const o=S[FAC[id]];if(!o)return;const dx=wx-o[0],dy=wy-o[1];if(Math.abs(dx)<=9&&dy>=-16&&dy<=9){const d=Math.hypot(dx,dy+3);if(d<bd){bd=d;hit=id}}});return hit}
+function lpClose(){lpMenu=null;$('lpm').classList.remove('on')}
+function lpOpen(id){lpMenu=id;fmClose();$('lpm').innerHTML='<b>'+facName(id)+'</b><div><button data-a="move">이동</button><button data-a="del">철거</button><button data-a="x">취소</button></div>';$('lpm').classList.add('on')}
+function delFac(id){const f=FAC[id],r=R.find(x=>x.id===id);if(!S[f])return;for(const m in r.c)S.inv[m]=(S.inv[m]|0)+Math.floor(r.c[m]/2);S[f]=null;if(S.brk)delete S.brk[id];if(id==='chest'){for(const m in S.ch)S.inv[m]=(S.inv[m]|0)+S.ch[m];S.ch={}}toast(r.n+' 철거 (재료 절반 회수)');renderInv();save()}
+$('lpm').addEventListener('pointerdown',e=>{const b=e.target.closest('button');if(!b)return;e.preventDefault();e.stopPropagation();const id=lpMenu,a=b.dataset.a;lpClose();if(!id)return;if(a==='del')delFac(id);else if(a==='move'){dragMode=id;toast(facName(id)+'을(를) 길게 누른 채 끌어서 옮기세요 (바깥을 누르면 취소)')}});
+function freeTiles(id){const oc=Object.keys(FAC).filter(k=>k!==id).map(k=>S[FAC[k]]).filter(Boolean);return S.tiles.map(k=>k.split(',').map(Number)).filter(([p,q])=>!oc.some(o=>o[0]===p*16+8&&o[1]===q*16+8)).map(([p,q])=>[p*16+8,q*16+8])}
+function nearFree(id,o){let b=null,bd=1e9;freeTiles(id).forEach(c=>{const d=Math.hypot(c[0]-o[0],c[1]-o[1]);if(d<bd){bd=d;b=c}});return bd<22?b:null}
+cv.addEventListener('pointerdown',e=>{if(build||dm||panelOn||dead||ex)return;const[wx,wy]=wpos(e);
+ if(lpMenu){lpClose();return}
+ if(dragMode){const o=S[FAC[dragMode]],id=dragMode;if(o&&Math.hypot(wx-o[0],wy-o[1]+4)<26){fmClose();drag={id,f:FAC[id],ox:o[0],oy:o[1]};o[0]=wx;o[1]=wy-4;dragMode=null}else{dragMode=null;toast('이동을 취소했다')}return}
+ const hit=hitFac(wx,wy,Object.keys(FAC));
+ if(!hit){fmClose();return}if(hit!==fmId)fmClose();
+ lp={id:hit,sx:e.clientX,sy:e.clientY,fired:false,moved:false,tm:setTimeout(()=>{if(lp&&!lp.moved){lp.fired=true;lpOpen(lp.id)}},500)}});
+addEventListener('pointermove',e=>{if(lp&&!lp.fired&&Math.hypot(e.clientX-lp.sx,e.clientY-lp.sy)>10){lp.moved=true;clearTimeout(lp.tm)}
+ if(drag){const o=S[drag.f],[wx,wy]=wpos(e);if(o){o[0]=wx;o[1]=wy-4}}});
+const lpEnd=ok2=>{if(drag){const o=S[drag.f],c=o&&nearFree(drag.id,o);if(o){if(c){o[0]=c[0];o[1]=c[1];PF.push({x:c[0],y:c[1],t});toast(facName(drag.id)+' 이동!')}else{o[0]=drag.ox;o[1]=drag.oy;toast('빈 타일에 놓아야 한다')}save()}drag=null}
+ if(lp){clearTimeout(lp.tm);const L=lp;lp=null;if(ok2&&!L.fired&&!L.moved){const hit=L.id;if(['chest','bench',...FTAP].includes(hit)){if(hit==='chest'){tab='보관';setPanel(true,'chest');return}if(hit==='bench'){if(Math.hypot(S.bn[0]-S.x,S.bn[1]-S.y)<40)setPanel(true,'bench');else toast('작업대 가까이 가서 누르자');return}useFac(hit)}}}};
+addEventListener('pointerup',()=>lpEnd(true));addEventListener('pointercancel',()=>lpEnd(false));
 
 let fmId=null,fmH='',fmT=0;
 const costTxt=c=>Object.entries(c).map(([k,v])=>T[k].n+' '+(S.inv[k]|0)+'/'+v).join(' · ');
@@ -414,6 +430,8 @@ function draw(){ox=Math.round(cam.x+Math.sin(t*23)*sk*1.5);oy=Math.round(cam.y+M
  S.tiles.forEach(k=>{const[p,q]=k.split(',').map(Number);tile(p,q,b)});
  if(rk>.3)S.tiles.forEach(k=>{const[p,q]=k.split(',').map(Number);Rc(p*16,q*16+b,16,16,'rgba(20,40,60,'+rk*.25+')')});
  if((S.tm|0)>360){const[p,q]=S.tiles[0].split(',').map(Number);Rc(p*16+11,q*16+11,2,2,'#e8d4c0');Rc(p*16+3,q*16+13,3,1,'#d8b878');if((S.tm|0)>720&&S.tiles.length>1){const[a,c]=S.tiles[1].split(',').map(Number);Rc(a*16+4,c*16+4,3,2,'#6b4226');Rc(a*16+10,c*16+12,2,2,'#cfe9f2')}}
+ if(drag){freeTiles(drag.id).forEach(c=>Rc(c[0]-8,c[1]-8+b,16,16,'rgba(255,255,255,.14)'));const o=S[drag.f],c=o&&nearFree(drag.id,o);if(c)Rc(c[0]-8,c[1]-8+b,16,16,Math.floor(t*4)%2?'rgba(232,199,106,.6)':'rgba(232,199,106,.3)')}
+ if(dragMode){const o=S[FAC[dragMode]];if(o&&Math.floor(t*3)%2)Rc(o[0]-1,o[1]-18+b,3,3,'#e8c76a')}
  if(build){cands().forEach(k=>{const[p,q]=k.split(',').map(Number);Rc(p*16,q*16+b,16,16,'rgba(255,255,255,.14)')});const[p,q]=pickC().split(',').map(Number);Rc(p*16,q*16+b,16,16,Math.floor(t*4)%2?'rgba(232,199,106,.6)':'rgba(232,199,106,.3)')}
  if(panelOn&&tab==='건축'){const rk2=rfTile();if(rk2){const[p,q]=rk2.split(',').map(Number);Rc(p*16,q*16+b,16,16,'rgba(232,199,106,.35)')}}
  if(S.bn){const x=S.bn[0],y=S.bn[1]+b;Rc(x-7,y-4,14,3,'#a8743f');Rc(x-7,y-4,14,1,'#d4a470');Rc(x-6,y-1,2,7,'#6b4226');Rc(x+4,y-1,2,7,'#6b4226');Rc(x-3,y-8,2,4,'#8c949c');Rc(x+1,y-6,4,2,'#c7ced4');if((S.bl|0)>=2)Rc(x-7,y-1,14,1,'#8c949c');if((S.bl|0)>=3){Rc(x+3,y-10,2,3,'#e0634f');Rc(x-7,y-4,14,1,'#e8c76a')}}
